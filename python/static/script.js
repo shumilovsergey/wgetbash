@@ -1,31 +1,16 @@
 // ── STATE ──
-let groups = [
-  { id: 1, name: 'Группа 1', scripts: [
-    { id: 11, name: 'скрипт 1',     content: '#!/bin/bash\necho "hello world"',                   exp: false, edit: false },
-    { id: 12, name: 'update system', content: 'sudo apt update\nsudo apt upgrade -y\ndf -h',       exp: false, edit: false },
-  ]},
-  { id: 2, name: 'работа', scripts: [
-    { id: 21, name: 'deploy',        content: 'git pull origin main\nnpm install\nnpm run build',  exp: false, edit: false },
-    { id: 22, name: 'nginx reload',  content: 'sudo nginx -t\nsudo systemctl reload nginx',        exp: false, edit: false },
-  ]},
-  { id: 3, name: 'Test-1', scripts: [
-    { id: 31, name: 'скрипт 1',     content: '#!/bin/bash\necho "test"',                           exp: false, edit: false },
-    { id: 32, name: 'docker intall', content: 'sudo apt update\nsudo apt upgrade\ndf -h\nsudo whoami', exp: false, edit: false },
-    { id: 33, name: 'script 2',     content: 'curl -fsSL https://get.docker.com | sh',            exp: false, edit: false },
-  ]},
-];
-
-let selGrp    = 3;
+let groups    = [];
+let selGrp    = null;
 let sbShrunk  = false;
-let uid       = 200;
 let confirmCb = null;
+let userHash  = '';
 
 // ── UTILS ──
 const $      = id => document.getElementById(id);
 const esc    = s  => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const isMob  = () => window.innerWidth <= 620;
 function grp(id)      { return groups.find(g => g.id === id); }
-function sc(gid, sid) { return grp(gid)?.scripts.find(s => s.id === sid); }
+function sc(gid, sid) { return grp(gid)?.scripts?.find(s => s.id === sid); }
 function init(name)   { return name.trim().charAt(0).toUpperCase(); }
 
 // ── ICONS ──
@@ -37,6 +22,51 @@ const ICO = {
   x:      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 };
 
+// ── HELPERS ──
+function autoResize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+// ── API ──
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    credentials: 'include',
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ── LOAD DATA ──
+async function loadGroups() {
+  try {
+    const data = await api('GET', '/api/groups');
+    groups = data.map(g => ({ ...g, scripts: [], loaded: false }));
+    if (groups.length) {
+      selGrp = groups[0].id;
+      await loadScripts(selGrp);
+    }
+    render();
+  } catch {
+    toast('failed to load groups');
+  }
+}
+
+async function loadScripts(gid) {
+  const g = grp(gid);
+  if (!g || g.loaded) return;
+  try {
+    const data = await api('GET', `/api/groups/${gid}/scripts`);
+    g.scripts = data.map(s => ({ ...s, exp: false, edit: false }));
+    g.loaded  = true;
+  } catch {
+    toast('failed to load scripts');
+  }
+}
+
 // ── RENDER ──
 function render() {
   renderGroups();
@@ -46,16 +76,14 @@ function render() {
 
 function renderGroups() {
   const list = $('grpList');
-  const q    = $('sbSearch').value.toLowerCase();
   list.innerHTML = '';
-  groups
-    .forEach(g => {
-      const d = document.createElement('div');
-      d.className = 'grp-row' + (g.id === selGrp ? ' active' : '');
-      d.innerHTML = `<div class="grp-init">${init(g.name)}</div><span class="grp-lbl">${esc(g.name)}</span>`;
-      d.addEventListener('click', () => selectGrp(g.id));
-      list.appendChild(d);
-    });
+  groups.forEach(g => {
+    const d = document.createElement('div');
+    d.className = 'grp-row' + (g.id === selGrp ? ' active' : '');
+    d.innerHTML = `<div class="grp-init">${init(g.name)}</div><span class="grp-lbl">${esc(g.name)}</span>`;
+    d.addEventListener('click', () => selectGrp(g.id));
+    list.appendChild(d);
+  });
 
   const addRow = document.createElement('div');
   addRow.className = 'sb-add';
@@ -79,18 +107,15 @@ function renderScripts() {
     item.className  = 'sc-item';
     item.dataset.id = s.id;
 
-    // Row
     const row = document.createElement('div');
     row.className = 'sc-row';
 
-    // Expand button
     const expBtn = document.createElement('button');
     expBtn.className = 'ib sm';
     expBtn.title     = s.exp ? 'collapse' : 'expand';
     expBtn.innerHTML = s.exp ? ICO.chevU : ICO.chevD;
     expBtn.addEventListener('click', () => toggleScript(s.id));
 
-    // Name / editable input
     let nameEl;
     if (s.edit) {
       nameEl = document.createElement('input');
@@ -101,21 +126,19 @@ function renderScripts() {
       nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') saveScript(s.id); });
     } else {
       nameEl = document.createElement('span');
-      nameEl.className  = 'sc-name';
+      nameEl.className   = 'sc-name';
       nameEl.textContent = s.name || '(unnamed)';
     }
 
-    // wget button
     const wb = document.createElement('button');
     wb.className = 'wget-btn';
     wb.textContent = 'wget';
     wb.title = 'copy wget command';
-    wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s.id); });
+    wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
 
     row.appendChild(expBtn);
     row.appendChild(nameEl);
 
-    // Edit / save button (only when expanded)
     if (s.exp) {
       const eb = document.createElement('button');
       eb.className = 'ib sm amber';
@@ -126,34 +149,38 @@ function renderScripts() {
     }
 
     row.appendChild(wb);
-
     item.appendChild(row);
 
-    // Expanded content area
     if (s.exp) {
       const cont = document.createElement('div');
       cont.className = 'sc-content';
 
       const ta = document.createElement('textarea');
-      ta.className = 'sc-ta';
-      ta.value     = s.content;
-      ta.rows      = Math.min(Math.max(s.content.split('\n').length + 1, 3), 12);
+      ta.className    = 'sc-ta';
+      ta.value        = s.content;
+      ta.spellcheck   = false;
       if (!s.edit) {
         ta.readOnly = true;
       } else {
-        ta.addEventListener('input', e => s._content = e.target.value);
+        ta.addEventListener('input', e => { s._content = e.target.value; autoResize(ta); });
+        ta.addEventListener('keydown', e => {
+          if (e.key === 'Backspace' && ta.selectionStart === ta.selectionEnd) {
+            const pos = ta.selectionStart;
+            if (pos === 0 || ta.value[pos - 1] === '\n') e.preventDefault();
+          }
+        });
       }
+      requestAnimationFrame(() => autoResize(ta));
 
       const foot = document.createElement('div');
       foot.className = 'sc-foot';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ib sm danger';
+      delBtn.title     = 'delete script';
+      delBtn.innerHTML = ICO.x;
+      delBtn.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
+      foot.appendChild(delBtn);
 
-      const db = document.createElement('button');
-      db.className = 'ib sm danger';
-      db.title     = 'delete script';
-      db.innerHTML = ICO.x;
-      db.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
-
-      foot.appendChild(db);
       cont.appendChild(ta);
       cont.appendChild(foot);
       item.appendChild(cont);
@@ -178,7 +205,7 @@ function renderSearchResults(q) {
   let count = 0;
 
   groups.forEach(g => {
-    g.scripts
+    (g.scripts || [])
       .filter(s => s.name.toLowerCase().includes(q))
       .forEach(s => {
         count++;
@@ -188,12 +215,9 @@ function renderSearchResults(q) {
         const row = document.createElement('div');
         row.className = 'sc-row';
         row.style.cursor = 'pointer';
-        row.title = `in: ${g.name}`;
 
-        // Expand button
         const expBtn = document.createElement('button');
         expBtn.className = 'ib sm';
-        expBtn.title     = s.exp ? 'collapse' : 'expand';
         expBtn.innerHTML = s.exp ? ICO.chevU : ICO.chevD;
         expBtn.addEventListener('click', e => {
           e.stopPropagation();
@@ -201,26 +225,19 @@ function renderSearchResults(q) {
           renderScripts();
         });
 
-        // Group badge
         const badge = document.createElement('div');
-        badge.className = 'grp-init';
+        badge.className   = 'grp-init';
         badge.textContent = init(g.name);
-        badge.title = g.name;
+        badge.title       = g.name;
 
         const nameEl = document.createElement('span');
-        nameEl.className  = 'sc-name';
+        nameEl.className   = 'sc-name';
         nameEl.textContent = s.name || '(unnamed)';
-
-        const wb = document.createElement('button');
-        wb.className   = 'wget-btn';
-        wb.textContent = 'wget';
-        wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s.id); });
 
         row.appendChild(expBtn);
         row.appendChild(badge);
         row.appendChild(nameEl);
 
-        // Click → navigate to that group and clear search
         row.addEventListener('click', () => {
           $('sbSearch').value = '';
           selectGrp(g.id);
@@ -228,26 +245,26 @@ function renderSearchResults(q) {
 
         item.appendChild(row);
 
-        // Expanded content preview
         if (s.exp) {
           const cont = document.createElement('div');
           cont.className = 'sc-content';
-
           const ta = document.createElement('textarea');
-          ta.className = 'sc-ta';
-          ta.value     = s.content || '';
-          ta.readOnly  = true;
-          ta.rows      = Math.min(Math.max((s.content || '').split('\n').length + 1, 3), 12);
-
+          ta.className  = 'sc-ta';
+          ta.value      = s.content || '';
+          ta.readOnly   = true;
+          ta.spellcheck = false;
+          requestAnimationFrame(() => autoResize(ta));
           cont.appendChild(ta);
           item.appendChild(cont);
         }
 
-        // wget in footer (bottom-right)
         const foot = document.createElement('div');
         foot.className = 'sc-foot';
         foot.style.padding = '0 14px 10px';
-        wb.addEventListener('click', e => e.stopPropagation());
+        const wb = document.createElement('button');
+        wb.className   = 'wget-btn';
+        wb.textContent = 'wget';
+        wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
         foot.appendChild(wb);
         item.appendChild(foot);
 
@@ -273,15 +290,17 @@ function renderPanelHead() {
   } else {
     $('rpTitle').textContent          = g ? g.name : '—';
     $('grpMenuWrap').style.visibility = g ? 'visible' : 'hidden';
-    if (g) $('grpRenameInp').value    = g.name;
+    const nd = $('grpNameDisplay');
+    if (nd && g) nd.textContent = g.name;
   }
 }
 
 // ── ACTIONS ──
-function selectGrp(id) {
+async function selectGrp(id) {
   const prev = grp(selGrp);
   if (prev) prev.scripts.forEach(s => { applyEdits(s); s.exp = false; s.edit = false; });
   selGrp = id;
+  await loadScripts(id);
   render();
   if (isMob()) { document.body.className = 'vs'; $('backBtn').style.display = 'inline-flex'; }
 }
@@ -303,10 +322,16 @@ function startEdit(sid) {
   if (inp) inp.focus();
 }
 
-function saveScript(sid) {
+async function saveScript(sid) {
   const s = sc(selGrp, sid);
   if (!s) return;
-  applyEdits(s); s.edit = false;
+  applyEdits(s);
+  s.edit = false;
+  try {
+    await api('PUT', `/api/scripts/${sid}`, { name: s.name, content: s.content });
+  } catch {
+    toast('failed to save script');
+  }
   renderScripts();
 }
 
@@ -315,15 +340,20 @@ function applyEdits(s) {
   if (s._content !== undefined) { s.content = s._content; delete s._content; }
 }
 
-function deleteScript(sid) {
+async function deleteScript(sid) {
   const g = grp(selGrp);
   if (!g) return;
-  g.scripts = g.scripts.filter(s => s.id !== sid);
+  try {
+    await api('DELETE', `/api/scripts/${sid}`);
+    g.scripts = g.scripts.filter(s => s.id !== sid);
+  } catch {
+    toast('failed to delete script');
+  }
   renderScripts();
 }
 
-function copyWget(sid) {
-  const cmd = `wget -qO- https://wgetbash.sh/run/${sid} | bash`;
+function copyWget(s) {
+  const cmd = `wget -qO- ${window.location.origin}/run/${userHash}/${s.hash} | bash`;
   navigator.clipboard?.writeText(cmd).catch(() => {});
   toast('wget command copied!');
 }
@@ -337,43 +367,154 @@ function addGroup() {
   inp.className    = 'new-grp-inp';
   inp.placeholder  = 'group name';
   inp.autocomplete = 'off';
-  const commit = () => {
+  let committed = false;
+  const commit = async () => {
+    if (committed) return;
+    committed = true;
     const name = inp.value.trim();
     row.remove();
     if (!name) return;
-    const id = uid++;
-    groups.push({ id, name, scripts: [] });
-    renderGroups();
-    selectGrp(id);
+    try {
+      const g = await api('POST', '/api/groups', { name });
+      groups.push({ ...g, scripts: [], loaded: true });
+      renderGroups();
+      selectGrp(g.id);
+    } catch {
+      toast('failed to create group');
+    }
   };
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') row.remove(); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { committed = true; row.remove(); } });
   inp.addEventListener('blur', commit);
   row.appendChild(inp);
   list.appendChild(row);
   inp.focus();
 }
 
-function addScript() {
+async function addScript() {
   const g = grp(selGrp);
   if (!g) return;
-  const id = uid++;
-  g.scripts.push({ id, name: '', content: '', exp: true, edit: true, _name: '', _content: '' });
-  renderScripts();
-  const inp = document.querySelector(`.sc-item[data-id="${id}"] .sc-name-inp`);
-  if (inp) inp.focus();
+  try {
+    const s = await api('POST', `/api/groups/${selGrp}/scripts`, { name: '', content: '' });
+    g.scripts.push({ ...s, exp: true, edit: true, _name: '', _content: '' });
+    renderScripts();
+    const inp = document.querySelector(`.sc-item[data-id="${s.id}"] .sc-name-inp`);
+    if (inp) inp.focus();
+  } catch {
+    toast('failed to create script');
+  }
 }
 
-function saveGroupName() {
+function enterGrpEditMode() {
+  const row = $('grpNameRow');
+  const g = grp(selGrp);
+
+  const inp = document.createElement('input');
+  inp.className    = 'drop-inp';
+  inp.id           = 'grpRenameInp';
+  inp.value        = g ? g.name : '';
+  inp.placeholder  = 'new name';
+  inp.autocomplete = 'off';
+
+  const btn = $('grpRenameBtn');
+  btn.innerHTML = ICO.check;
+  btn.title = 'save';
+  btn.onclick = e => { e.stopPropagation(); saveGroupName(); };
+
+  row.replaceChild(inp, $('grpNameDisplay'));
+  inp.focus();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveGroupName();
+    if (e.key === 'Escape') exitGrpEditMode();
+  });
+}
+
+function exitGrpEditMode() {
+  const row = $('grpNameRow');
+  const inp = $('grpRenameInp');
+  if (!inp) return;
+
+  const span = document.createElement('span');
+  span.className   = 'drop-lbl';
+  span.id          = 'grpNameDisplay';
+  span.textContent = grp(selGrp)?.name ?? '';
+  span.style.cursor = 'pointer';
+  span.addEventListener('click', e => { e.stopPropagation(); enterGrpEditMode(); });
+  row.replaceChild(span, inp);
+
+  const btn = $('grpRenameBtn');
+  btn.innerHTML = ICO.pencil;
+  btn.title = 'edit name';
+  btn.onclick = e => { e.stopPropagation(); enterGrpEditMode(); };
+}
+
+async function saveGroupName() {
   const g   = grp(selGrp);
-  const val = $('grpRenameInp').value.trim();
-  if (g && val) { g.name = val; renderGroups(); renderPanelHead(); }
+  const val = ($('grpRenameInp')?.value ?? '').trim();
+  exitGrpEditMode();
+  if (!g || !val) return;
+  try {
+    await api('PUT', `/api/groups/${selGrp}`, { name: val });
+    g.name = val;
+    renderGroups();
+    renderPanelHead();
+  } catch {
+    toast('failed to rename group');
+  }
   $('grpDrop').style.display = 'none';
 }
 
-function saveUserName() {
-  const val = $('userNameInp').value.trim();
-  if (val) $('userLbl').textContent = val;
-  $('userDrop').style.display = 'none';
+function setUserDisplay(name) {
+  $('userNameDisplay').textContent = name;
+}
+
+function enterUserEditMode() {
+  const row = $('userNameRow');
+  const currentName = $('userLbl').textContent;
+
+  const inp = document.createElement('input');
+  inp.className   = 'drop-inp';
+  inp.id          = 'userNameInp';
+  inp.value       = currentName;
+  inp.placeholder = 'new name';
+  inp.autocomplete = 'off';
+
+  const btn = $('userEditBtn');
+  btn.innerHTML = `<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4 7.5L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  btn.title = 'save';
+  btn.onclick = e => { e.stopPropagation(); commitUserName(); };
+
+  row.replaceChild(inp, $('userNameDisplay'));
+  inp.focus();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commitUserName(); if (e.key === 'Escape') exitUserEditMode(); });
+}
+
+function exitUserEditMode() {
+  const row = $('userNameRow');
+  const inp = $('userNameInp');
+  const span = document.createElement('span');
+  span.className = 'drop-lbl';
+  span.id        = 'userNameDisplay';
+  span.textContent = $('userLbl').textContent;
+  span.style.cursor = 'pointer';
+  span.addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
+  row.replaceChild(span, inp);
+
+  const btn = $('userEditBtn');
+  btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+  btn.title = 'edit name';
+  btn.onclick = e => { e.stopPropagation(); enterUserEditMode(); };
+}
+
+async function commitUserName() {
+  const val = $('userNameInp')?.value.trim() || 'no name';
+  exitUserEditMode();
+  try {
+    await api('PUT', '/api/users/me', { username: val });
+    $('userLbl').textContent = val;
+    setUserDisplay(val);
+  } catch {
+    toast('failed to save name');
+  }
 }
 
 function toggleSb() {
@@ -423,17 +564,27 @@ $('sbToggle').addEventListener('click', toggleSb);
 $('sbSearch').addEventListener('input', render);
 $('backBtn').addEventListener('click', () => { document.body.className = 'vg'; $('backBtn').style.display = 'none'; });
 
-$('userTrig').addEventListener('click',   e => { e.stopPropagation(); toggleDrop('userDrop'); });
-$('grpTrig').addEventListener('click',    e => { e.stopPropagation(); toggleDrop('grpDrop'); });
-$('saveUserBtn').addEventListener('click', e => { e.stopPropagation(); saveUserName(); });
-$('saveGrpBtn').addEventListener('click',  e => { e.stopPropagation(); saveGroupName(); });
+$('userTrig').addEventListener('click', e => { e.stopPropagation(); toggleDrop('userDrop'); });
+$('grpTrig').addEventListener('click',  e => { e.stopPropagation(); toggleDrop('grpDrop'); });
+$('userEditBtn').addEventListener('click',    e => { e.stopPropagation(); enterUserEditMode(); });
+$('userNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
+$('userNameDisplay').style.cursor = 'pointer';
+$('grpRenameBtn').addEventListener('click',  e => { e.stopPropagation(); enterGrpEditMode(); });
+$('grpNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterGrpEditMode(); });
+$('grpNameDisplay').style.cursor = 'pointer';
 $('delGrpRow').addEventListener('click',   e => {
   e.stopPropagation();
   $('grpDrop').style.display = 'none';
-  confirmDel(() => {
-    groups = groups.filter(g => g.id !== selGrp);
-    selGrp = groups.length ? groups[0].id : null;
-    render();
+  confirmDel(async () => {
+    try {
+      await api('DELETE', `/api/groups/${selGrp}`);
+      groups = groups.filter(g => g.id !== selGrp);
+      selGrp = groups.length ? groups[0].id : null;
+      if (selGrp) await loadScripts(selGrp);
+      render();
+    } catch {
+      toast('failed to delete group');
+    }
   });
 });
 document.addEventListener('click', e => { if (!e.target.closest('.dd')) closeAllDrops(); });
@@ -448,23 +599,29 @@ async function initAuth() {
     const res  = await fetch('/auth/me', { credentials: 'include' });
     if (!res.ok) throw new Error();
     const user = await res.json();
-    $('userLbl').textContent   = user.username;
-    $('userNameInp').value     = user.username;
+    $('userLbl').textContent = user.username;
+    userHash                 = user.user_hash;
+    setUserDisplay(user.username);
     $('loginWrap').style.display = 'none';
     $('appWrap').style.display   = 'flex';
-    render();
     if (!isMob()) $('backBtn').style.display = 'none';
     else document.body.className = 'vg';
+    await loadGroups();
   } catch {
     $('loginWrap').style.display = 'flex';
     $('appWrap').style.display   = 'none';
   }
 }
 
-$('logoutRow').removeEventListener('click', null);
 $('logoutRow').addEventListener('click', async () => {
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
   window.location.reload();
+});
+
+// ── LOGIN CHEVRON ──
+$('loginChev').addEventListener('click', () => {
+  const open = $('loginChev').classList.toggle('open');
+  $('loginPanel').classList.toggle('open', open);
 });
 
 initAuth();
