@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#09090e"/>
+  <rect width="32" height="32" rx="7" fill="none" stroke="#39ff14" stroke-width="1.5" opacity="0.5"/>
+  <!-- > prompt -->
+  <path d="M6 11L12 16L6 21" stroke="#39ff14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#g)"/>
+  <!-- _ cursor -->
+  <line x1="15" y1="21" x2="26" y2="21" stroke="#39ff14" stroke-width="2.2" stroke-linecap="round" filter="url(#g)"/>
+  <defs>
+    <filter id="g" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+</svg>

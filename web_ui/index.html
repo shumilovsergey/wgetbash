@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>wgetbash</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ════ LOGIN ════ -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-logo">WGETBASH</div>
+    <div class="login-sub">sh-development.ru</div>
+    <button class="login-btn" id="showLoginForm">login</button>
+    <div class="login-form" id="loginForm">
+      <input class="login-input" id="loginUser" placeholder="username" autocomplete="off"/>
+      <input class="login-input" id="loginPass" placeholder="password" type="password"/>
+      <button class="login-btn" id="doLogin">enter</button>
+    </div>
+    <button class="login-btn dim">old version</button>
+  </div>
+</div>
+
+<!-- ════ APP ════ -->
+<div class="app-wrap" id="appWrap">
+
+  <!-- Header -->
+  <header class="hdr">
+    <span class="user-lbl" id="userLbl">User name</span>
+    <div class="dd">
+      <button class="ib" id="userTrig" title="menu">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+          <path d="M1 1.5H13M1 5H13M1 8.5H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="drop" id="userDrop" style="display:none">
+        <div class="drop-row">
+          <input class="drop-inp" id="userNameInp" value="User name" placeholder="new name"/>
+          <button class="ib sm amber" id="saveUserBtn" title="save">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="drop-row" id="logoutRow">
+          <span class="drop-lbl">logout</span>
+          <button class="ib sm danger" title="logout">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M3.2 3.2L6.8 6.8M6.8 3.2L3.2 6.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="app-box">
+
+      <!-- Sidebar -->
+      <div class="sb" id="sb">
+        <div class="sb-hd">
+          <input class="sb-search" id="sbSearch" placeholder="search" autocomplete="off"/>
+          <button class="ib sm" id="sbToggle" title="collapse">
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="none" id="sbArrow">
+              <path d="M6 2L2 6L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="grp-list" id="grpList"></div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="rp">
+        <div class="rp-hd">
+          <button class="ib sm" id="backBtn" style="display:none" title="back">
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
+              <path d="M6 2L2 6L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span class="rp-title" id="rpTitle">—</span>
+          <div class="dd" id="grpMenuWrap" style="visibility:hidden">
+            <button class="ib sm" id="grpTrig" title="group menu">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                <path d="M1 1.5H13M1 5H13M1 8.5H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div class="drop" id="grpDrop" style="display:none">
+              <div class="drop-row">
+                <input class="drop-inp" id="grpRenameInp" placeholder="new name"/>
+                <button class="ib sm amber" id="saveGrpBtn" title="save">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="drop-row" id="delGrpRow">
+                <span class="drop-lbl">delete</span>
+                <button class="ib sm danger" title="delete">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/>
+                    <path d="M3.2 3.2L6.8 6.8M6.8 3.2L3.2 6.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sc-list" id="scList"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Confirm modal -->
+<div class="overlay" id="confirmOverlay" style="display:none">
+  <div class="modal">
+    <div class="modal-q">are u shure?</div>
+    <div class="modal-btns">
+      <button class="ib teal" id="confirmYes">
+        <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
+          <path d="M1.5 6L5 9.5L12.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="ib danger" id="confirmNo">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
