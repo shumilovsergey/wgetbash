@@ -1,2 +1,11 @@
 .env
 .claude
+.db
+.DS_Store
+
+# systemd service files with real env vars — keep only .example templates
+*.service
+!*.service.example
+
+go/data/
+
