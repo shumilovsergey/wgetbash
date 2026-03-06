@@ -95,8 +95,7 @@ func userIDFromCtx(r *http.Request) int64 {
 // ── Auth handlers ──
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	url := fmt.Sprintf("%s/login?app_token=%s&redirect_uri=%s/auth/callback",
-		os.Getenv("AUTH_URL"), os.Getenv("APP_TOKEN"), os.Getenv("APP_URL"))
+	url := os.Getenv("AUTH_URL") + "/?redirect=" + os.Getenv("APP_URL") + "/"
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -150,7 +149,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setCookie(w, token)
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {

@@ -18,7 +18,6 @@ func main() {
 
 	// Auth
 	mux.HandleFunc("GET /auth/login", handleLogin)
-	mux.HandleFunc("GET /auth/callback", handleCallback)
 	mux.HandleFunc("GET /auth/me", handleMe)
 	mux.HandleFunc("POST /auth/logout", handleLogout)
 
@@ -36,9 +35,16 @@ func main() {
 	// Public script endpoint
 	mux.HandleFunc("GET /run/{userHash}/{scriptHash}", handleRunScript)
 
-	// Static files (embedded at build time)
+	// Static files — root also handles OAuth callback (?code=...)
 	staticFS, _ := fs.Sub(staticFiles, "static")
-	mux.Handle("/", http.FileServer(http.FS(staticFS)))
+	fileServer := http.FileServer(http.FS(staticFS))
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("code") != "" {
+			handleCallback(w, r)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {

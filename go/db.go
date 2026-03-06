@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
@@ -13,7 +14,14 @@ var db *sql.DB
 func initDB() {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
-		dbPath = "/data/wgetbash.db"
+		dbPath = "./wgetbash.db"
+	}
+
+	// create parent directory if it doesn't exist
+	if dir := filepath.Dir(dbPath); dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Fatalf("create db dir: %v", err)
+		}
 	}
 
 	var err error
