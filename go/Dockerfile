@@ -12,8 +12,8 @@ ENV GONOSUMDB=* GOFLAGS=-mod=mod
 COPY go/*.go ./
 COPY python/static/ ./static/
 
-# Build static binary
-RUN CGO_ENABLED=0 GOOS=linux \
+# Build static binary for linux/amd64
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o wgetbash .
 
 # ── Final image ──
