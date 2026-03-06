@@ -143,6 +143,8 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	seedDemoContent(userID)
+
 	token, err := makeToken(userID)
 	if err != nil {
 		http.Error(w, "token error", http.StatusInternalServerError)
