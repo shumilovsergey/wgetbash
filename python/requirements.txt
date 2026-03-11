@@ -4,3 +4,4 @@ aiosqlite
 PyJWT
 httpx
 python-dotenv
+python-multipart

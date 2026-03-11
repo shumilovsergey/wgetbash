@@ -23,7 +23,7 @@ let confirmCb = null;
 // ── UTILS ──
 const $      = id => document.getElementById(id);
 const esc    = s  => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const isMob  = () => window.innerWidth <= 620;
+const isMob  = () => window.innerWidth <= 767;
 function grp(id)      { return groups.find(g => g.id === id); }
 function sc(gid, sid) { return grp(gid)?.scripts.find(s => s.id === sid); }
 function init(name)   { return name.trim().charAt(0).toUpperCase(); }

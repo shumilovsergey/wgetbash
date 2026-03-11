@@ -313,12 +313,72 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-/* ── MOBILE ── */
-@media (max-width: 620px) {
-  .main { padding: 0 10px 14px; }
-  .hdr { padding: 0 14px; }
+/* ── MOBILE (< iPad = ≤ 767px) ── */
+@media (max-width: 767px) {
+  /* prevent body scroll — app fills viewport */
+  html, body { overflow: hidden; }
+
+  /* scale up base font */
+  body { font-size: 16px; }
+
+  /* bump shared size vars */
+  :root {
+    --panel-hd-h: 64px;
+    --row-py:     18px;
+  }
+
+  /* taller header + extra top gap so user menu tap doesn't hit app area */
+  .hdr { height: 80px; padding: 0 16px; }
+  .user-lbl { font-size: 15px; }
+
+  /* bigger icon buttons */
+  .ib    { width: 46px; height: 46px; }
+  .ib.sm { width: 40px; height: 40px; }
+
+  /* no side margins — use full width */
+  .main { padding: 10px 0 0; }
+
+  /* full-width box, drop side borders + bottom border */
+  .app-box {
+    border-left: none; border-right: none; border-bottom: none;
+    border-radius: var(--r) var(--r) 0 0;
+    max-width: 100%;
+  }
+
+  /* sidebar takes full width */
   .sb { width: 100% !important; min-width: 100% !important; border-right: none; }
+
+  /* hide search + collapse toggle */
+  #sbSearch { display: none !important; }
+  #sbToggle { display: none !important; }
+
+  /* bigger new-group input */
+  .new-grp-inp { font-size: 18px; }
+  .new-grp-row { padding: var(--row-py) 16px; }
+
+  /* bigger group rows */
+  .grp-init { width: 40px; height: 40px; font-size: 16px; }
+  .grp-lbl  { font-size: 18px; }
+
+  /* bigger right panel */
+  .rp-title   { font-size: 18px; }
+  .sc-name    { font-size: 18px; }
+  .sc-name-inp{ font-size: 18px; }
+
+  /* bigger wget button */
+  .wget-btn { height: 40px; padding: 0 18px; font-size: 14px; letter-spacing: 1px; }
+
+  /* mobile view switching: show only one panel at a time */
   body.vg .rp { display: none; }
   body.vs .sb { display: none; }
   #backBtn { display: inline-flex !important; }
+
+  /* bigger dropdowns */
+  .drop      { width: 240px; }
+  .drop-row  { min-height: 50px; font-size: 16px; }
+  .drop-lbl  { font-size: 16px; }
+  .drop-inp  { font-size: 16px; }
+
+  /* bigger toast */
+  .toast { font-size: 15px; padding: 12px 22px; }
 }
