@@ -99,6 +99,7 @@ function renderScripts() {
 
   const list = $('scList');
   const savedScroll = list.scrollTop;
+  const savedWinScroll = window.scrollY;
   list.innerHTML = '';
   const g = grp(selGrp);
   if (!g) return;
@@ -201,7 +202,11 @@ function renderScripts() {
 
   // restore immediately (sync) AND after autoResize RAFs finish
   list.scrollTop = savedScroll;
-  requestAnimationFrame(() => { list.scrollTop = savedScroll; });
+  window.scrollTo(0, savedWinScroll);
+  requestAnimationFrame(() => {
+    list.scrollTop = savedScroll;
+    window.scrollTo(0, savedWinScroll);
+  });
 }
 
 function renderSearchResults(q) {
