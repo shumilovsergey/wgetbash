@@ -315,8 +315,9 @@ body {
 
 /* ── MOBILE (< iPad = ≤ 767px) ── */
 @media (max-width: 767px) {
-  /* prevent body scroll — app fills viewport */
-  html, body { overflow: hidden; }
+  /* lock body to viewport, internal lists scroll via their own overflow-y */
+  body { height: 100dvh; overflow: hidden; }
+  .app-wrap { min-height: 0; }
 
   /* scale up base font */
   body { font-size: 16px; }
