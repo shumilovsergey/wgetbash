@@ -98,6 +98,7 @@ function renderScripts() {
   if (q) { renderSearchResults(q); return; }
 
   const list = $('scList');
+  const savedScroll = list.scrollTop;
   list.innerHTML = '';
   const g = grp(selGrp);
   if (!g) return;
@@ -197,6 +198,8 @@ function renderScripts() {
     addRow.addEventListener('click', addScript);
     list.appendChild(addRow);
   }
+
+  list.scrollTop = savedScroll;
 }
 
 function renderSearchResults(q) {
