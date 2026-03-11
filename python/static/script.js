@@ -199,7 +199,9 @@ function renderScripts() {
     list.appendChild(addRow);
   }
 
+  // restore immediately (sync) AND after autoResize RAFs finish
   list.scrollTop = savedScroll;
+  requestAnimationFrame(() => { list.scrollTop = savedScroll; });
 }
 
 function renderSearchResults(q) {
