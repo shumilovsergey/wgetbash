@@ -18,6 +18,7 @@ const ICO = {
   chevD:  `<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 1.5L4.5 5L8 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   chevU:  `<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 5.5L4.5 2L8 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   pencil: `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+  clip:   `<svg width="10" height="12" viewBox="0 0 10 12" fill="none"><rect x="1" y="2.5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3.5 2.5V1.8C3.5 1.36 3.86 1 4.3 1H5.7C6.14 1 6.5 1.36 6.5 1.8V2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
   check:  `<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4 7.5L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   x:      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 };
@@ -148,6 +149,13 @@ function renderScripts() {
       eb.innerHTML = s.edit ? ICO.check : ICO.pencil;
       eb.addEventListener('click', () => s.edit ? saveScript(s.id) : startEdit(s.id));
       row.appendChild(eb);
+    } else {
+      const cb = document.createElement('button');
+      cb.className = 'ib sm';
+      cb.title     = 'copy script';
+      cb.innerHTML = ICO.clip;
+      cb.addEventListener('click', e => { e.stopPropagation(); copyContent(s); });
+      row.appendChild(cb);
     }
 
     row.appendChild(wb);
@@ -360,6 +368,11 @@ async function deleteScript(sid) {
     toast('failed to delete script');
   }
   renderScripts();
+}
+
+function copyContent(s) {
+  navigator.clipboard?.writeText(s.content).catch(() => {});
+  toast('script copied!');
 }
 
 function copyWget(s) {
