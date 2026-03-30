@@ -144,6 +144,21 @@ function renderScripts() {
         ta.readOnly = true;
       } else {
         ta.addEventListener('input', e => s._content = e.target.value);
+
+        // Fix: mobile & desktop browsers sometimes swallow backspace on empty lines.
+        // Intercept and handle the newline deletion explicitly.
+        function handleBackspaceLine(e) {
+          const start = ta.selectionStart;
+          const end   = ta.selectionEnd;
+          if (start !== end || start === 0) return;
+          if (ta.value[start - 1] !== '\n') return;
+          e.preventDefault();
+          ta.value = ta.value.slice(0, start - 1) + ta.value.slice(start);
+          ta.selectionStart = ta.selectionEnd = start - 1;
+          s._content = ta.value;
+        }
+        ta.addEventListener('keydown', e => { if (e.key === 'Backspace') handleBackspaceLine(e); });
+        ta.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e); });
       }
 
       const foot = document.createElement('div');

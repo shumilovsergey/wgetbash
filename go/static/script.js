@@ -173,12 +173,19 @@ function renderScripts() {
         ta.readOnly = true;
       } else {
         ta.addEventListener('input', e => { s._content = e.target.value; autoResize(ta); });
-        ta.addEventListener('keydown', e => {
-          if (e.key === 'Backspace' && ta.selectionStart === ta.selectionEnd) {
-            const pos = ta.selectionStart;
-            if (pos === 0 || ta.value[pos - 1] === '\n') e.preventDefault();
-          }
-        });
+        function handleBackspaceLine(e) {
+          const start = ta.selectionStart;
+          const end   = ta.selectionEnd;
+          if (start !== end || start === 0) return;
+          if (ta.value[start - 1] !== '\n') return;
+          e.preventDefault();
+          ta.value = ta.value.slice(0, start - 1) + ta.value.slice(start);
+          ta.selectionStart = ta.selectionEnd = start - 1;
+          s._content = ta.value;
+          autoResize(ta);
+        }
+        ta.addEventListener('keydown', e => { if (e.key === 'Backspace') handleBackspaceLine(e); });
+        ta.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e); });
       }
       requestAnimationFrame(() => autoResize(ta));
 
