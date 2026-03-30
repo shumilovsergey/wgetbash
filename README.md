@@ -1,6 +1,23 @@
 # wgetbash
 🧩
 
+## Security
+
+Session cookie is `HttpOnly` — JS cannot read it. It's a signed JWT (HMAC-SHA256):
+
+```
+Browser → sends cookie automatically (never readable by JS)
+Server  → validates JWT signature with SECRET_KEY
+        → rejects any tampered token with 401
+```
+
+```
+Login → OAuth callback → server issues signed JWT → HttpOnly cookie
+                                    ↓
+                         user_id inside JWT is tamper-proof:
+                         changing it breaks the signature → 401
+```
+
 ## Dev (macOS ARM)
 
 Requires Docker Desktop.

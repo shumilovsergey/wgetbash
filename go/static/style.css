@@ -293,16 +293,28 @@ body {
 .wget-btn.ok { background: #0a2e2a; color: var(--teal2); border-color: #147060; }
 
 .sc-content { padding: 0 14px 12px 14px; }
+.ta-wrap { position: relative; display: block; }
+.sc-hl {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 12px; line-height: 1.7;
+  padding: 10px 13px;
+  border: 1.5px solid transparent; border-radius: var(--rsm);
+  white-space: pre-wrap; overflow-wrap: break-word;
+  overflow: hidden; pointer-events: none;
+  color: var(--txt); background: var(--surf2);
+}
+.sc-hl .cm { color: var(--txt2); }
 .sc-ta {
-  width: 100%; background: var(--surf2);
+  position: relative;
+  width: 100%; background: transparent;
   border: 1.5px solid var(--b); border-radius: var(--rsm);
-  color: var(--txt);
+  color: transparent; caret-color: var(--txt);
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
   font-size: 12px; line-height: 1.7;
   padding: 10px 13px; resize: none; min-height: 88px; outline: none;
   overflow: hidden; transition: border-color .15s;
 }
-.sc-ta[readonly] { color: var(--txt2); }
 .sc-ta:not([readonly]):focus { border-color: var(--teal); }
 .sc-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
 

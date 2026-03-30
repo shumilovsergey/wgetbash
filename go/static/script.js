@@ -29,6 +29,14 @@ function autoResize(ta) {
   ta.style.height = ta.scrollHeight + 'px';
 }
 
+function highlightBash(text) {
+  return text.split('\n').map(line => {
+    const idx = line.indexOf('#');
+    if (idx === -1) return esc(line);
+    return esc(line.slice(0, idx)) + '<span class="cm">' + esc(line.slice(idx)) + '</span>';
+  }).join('\n');
+}
+
 // ── API ──
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -169,10 +177,26 @@ function renderScripts() {
       ta.className    = 'sc-ta';
       ta.value        = s.content;
       ta.spellcheck   = false;
+
+      const hl = document.createElement('div');
+      hl.className = 'sc-hl';
+      hl.setAttribute('aria-hidden', 'true');
+      hl.innerHTML = highlightBash(s.content);
+      ta.addEventListener('scroll', () => { hl.style.transform = `translateY(-${ta.scrollTop}px)`; });
+
+      const taWrap = document.createElement('div');
+      taWrap.className = 'ta-wrap';
+      taWrap.appendChild(hl);
+      taWrap.appendChild(ta);
+
       if (!s.edit) {
         ta.readOnly = true;
       } else {
-        ta.addEventListener('input', e => { s._content = e.target.value; autoResize(ta); });
+        ta.addEventListener('input', e => {
+          s._content = e.target.value;
+          hl.innerHTML = highlightBash(e.target.value);
+          autoResize(ta);
+        });
         function handleBackspaceLine(e) {
           const start = ta.selectionStart;
           const end   = ta.selectionEnd;
@@ -182,6 +206,7 @@ function renderScripts() {
           ta.value = ta.value.slice(0, start - 1) + ta.value.slice(start);
           ta.selectionStart = ta.selectionEnd = start - 1;
           s._content = ta.value;
+          hl.innerHTML = highlightBash(ta.value);
           autoResize(ta);
         }
         ta.addEventListener('keydown', e => { if (e.key === 'Backspace') handleBackspaceLine(e); });
@@ -198,7 +223,7 @@ function renderScripts() {
       delBtn.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
       foot.appendChild(delBtn);
 
-      cont.appendChild(ta);
+      cont.appendChild(taWrap);
       cont.appendChild(foot);
       item.appendChild(cont);
     }
@@ -278,8 +303,20 @@ function renderSearchResults(q) {
           ta.value      = s.content || '';
           ta.readOnly   = true;
           ta.spellcheck = false;
+
+          const hl = document.createElement('div');
+          hl.className = 'sc-hl';
+          hl.setAttribute('aria-hidden', 'true');
+          hl.innerHTML = highlightBash(s.content || '');
+          ta.addEventListener('scroll', () => { hl.style.transform = `translateY(-${ta.scrollTop}px)`; });
+
+          const taWrap = document.createElement('div');
+          taWrap.className = 'ta-wrap';
+          taWrap.appendChild(hl);
+          taWrap.appendChild(ta);
+
           requestAnimationFrame(() => autoResize(ta));
-          cont.appendChild(ta);
+          cont.appendChild(taWrap);
           item.appendChild(cont);
         }
 
