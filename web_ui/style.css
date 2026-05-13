@@ -99,11 +99,35 @@ body {
 /* ── APP SHELL ── */
 .app-wrap { flex: 1; display: none; flex-direction: column; }
 
-.hdr {
+.navbar {
   height: 52px; display: flex; align-items: center;
-  justify-content: flex-end; padding: 0 20px; gap: 10px; flex-shrink: 0;
+  justify-content: space-between; padding: 0 16px; flex-shrink: 0;
 }
-.user-lbl { color: var(--txt2); font-size: 12px; letter-spacing: .3px; }
+
+.nav-tabs {
+  display: flex; align-items: center;
+  background: var(--chrome); border: 1.5px solid var(--bhi);
+  border-radius: 28px; padding: 4px; gap: 2px;
+}
+
+.tab {
+  background: transparent; border: none; border-radius: 20px;
+  height: 34px; padding: 0 16px;
+  color: var(--txt2); font-family: inherit; font-size: 13px;
+  white-space: nowrap; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.tab:hover { color: var(--txt); }
+.tab.active { background: var(--surf2); color: var(--txt); border: 1.5px solid var(--bhi); }
+
+.profile-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--chrome); border: 1.5px solid var(--bhi);
+  color: var(--txt2); font-family: inherit; font-size: 15px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.profile-btn:hover { border-color: var(--txt2); color: var(--txt); }
 
 /* circle icon button */
 .ib {
@@ -329,8 +353,7 @@ body {
   }
 
   /* taller header + extra top gap so user menu tap doesn't hit app area */
-  .hdr { height: 80px; padding: 0 16px; }
-  .user-lbl { font-size: 15px; }
+  .navbar { height: 80px; padding: 0 16px; }
 
   /* bigger icon buttons */
   .ib    { width: 46px; height: 46px; }

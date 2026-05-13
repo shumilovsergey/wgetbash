@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loger</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #58a6ff;
+    letter-spacing: 1px;
+  }
+
+  .btn {
+    background: #21262d;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #30363d; border-color: #58a6ff; }
+  .btn.danger:hover { background: #3d1a1a; border-color: #f85149; }
+  .btn.primary { background: #1f4068; border-color: #58a6ff; color: #58a6ff; }
+  .btn.primary:hover { background: #2a5298; }
+
+  .readme-btn { color: #58a6ff; text-decoration: none; }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+
+  .log-count {
+    color: #8b949e;
+    font-size: 11px;
+  }
+
+  /* ── Main layout ── */
+  main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── Load area (shown when no logs) ── */
+  #load-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    padding: 40px;
+  }
+
+  #load-area.hidden { display: none; }
+
+  .drop-zone {
+    border: 2px dashed #30363d;
+    border-radius: 12px;
+    padding: 48px 64px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    width: 100%;
+    max-width: 600px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: #58a6ff;
+    background: #1a2332;
+  }
+  .drop-zone svg { margin-bottom: 12px; opacity: 0.5; }
+  .drop-zone p { color: #8b949e; line-height: 1.7; }
+  .drop-zone p strong { color: #c9d1d9; }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    margin-top: 14px;
+  }
+  .format-tag {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    color: #484f58;
+    letter-spacing: 0.3px;
+  }
+
+  .drop-error {
+    margin-top: 10px;
+    color: #f85149;
+    font-size: 12px;
+    display: none;
+  }
+  .drop-error.visible { display: block; }
+
+  .paste-area-wrap {
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+  }
+  .paste-area-wrap label {
+    display: block;
+    color: #8b949e;
+    font-size: 11px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  #paste-input {
+    width: 100%;
+    height: 130px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 10px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #paste-input:focus { border-color: #58a6ff; }
+  #paste-input::placeholder { color: #484f58; }
+
+  /* ── Workspace (shown when logs loaded) ── */
+  #workspace {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  #workspace.hidden { display: none; }
+
+  /* ── Focus bar (matches conditions-bar layout) ── */
+  #focus-bar {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 16px;
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .col-label.focus { color: #e3b341; }
+  .col-label.math  { color: #58a6ff; }
+
+  .focus-fields-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .focus-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .focus-field label {
+    color: #6e7681;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .focus-field input[type=number] {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #e3b341;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 8px;
+    width: 76px;
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+  }
+  .focus-field input[type=number]::-webkit-inner-spin-button,
+  .focus-field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .focus-field input[type=number]:focus { border-color: #e3b341; }
+
+  .focus-sep {
+    color: #30363d;
+    font-size: 14px;
+  }
+
+  .focus-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: 4px;
+  }
+
+  .focus-pill-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #484f58;
+    font-family: inherit;
+    font-size: 11px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .focus-pill-btn:hover { color: #c9d1d9; background: #21262d; }
+  .focus-pill-btn.active { color: #e3b341; }
+  .focus-pill-btn.delete:hover { color: #f85149; }
+
+  #math-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .add-condition-btn.math-add:hover { border-color: #58a6ff; color: #58a6ff; }
+
+  .math-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0d1117;
+    border: 1px solid #1a2a4a;
+    border-radius: 20px;
+    padding: 3px 4px 3px 10px;
+    transition: opacity 0.15s;
+  }
+  .math-pill.disabled { opacity: 0.4; }
+
+  .math-prefix-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+    width: 60px;
+    min-width: 20px;
+  }
+  .math-prefix-input::placeholder { color: #484f58; }
+
+  .math-op-select {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #58a6ff;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0 2px;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .math-op-select option { background: #161b22; color: #c9d1d9; }
+
+  .math-val-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+    width: 72px;
+    -moz-appearance: textfield;
+  }
+  .math-val-input::-webkit-inner-spin-button,
+  .math-val-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  /* ── Conditions bar ── */
+  #conditions-bar {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 16px;
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .condition-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 260px;
+    flex: 1;
+  }
+
+  .condition-col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+
+  .col-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .col-label.grep { color: #3fb950; }
+  .col-label.remove { color: #f85149; }
+
+  .col-divider {
+    width: 1px;
+    background: #30363d;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  .condition-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .condition-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 20px;
+    padding: 3px 4px 3px 10px;
+    transition: opacity 0.15s;
+  }
+  .condition-pill.grep-pill { border-color: #1a4a1e; }
+  .condition-pill.remove-pill { border-color: #4a1a1a; }
+  .condition-pill.disabled { opacity: 0.4; }
+
+  .condition-pill input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 12px;
+    width: 100px;
+    min-width: 40px;
+  }
+  .condition-pill.grep-pill input { color: #3fb950; }
+  .condition-pill.remove-pill input { color: #f85149; }
+
+  .pill-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    color: #484f58;
+    transition: color 0.15s, background 0.15s;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .pill-btn:hover { color: #c9d1d9; background: #21262d; }
+  .pill-btn.toggle-btn:hover { color: #f0c100; }
+  .pill-btn.delete-btn:hover { color: #f85149; }
+
+  .add-condition-btn {
+    background: #0d1117;
+    border: 1px dashed #30363d;
+    border-radius: 20px;
+    padding: 3px 10px;
+    cursor: pointer;
+    color: #484f58;
+    font-size: 12px;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .add-condition-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+  .add-condition-btn.grep-add:hover { border-color: #3fb950; color: #3fb950; }
+  .add-condition-btn.remove-add:hover { border-color: #f85149; color: #f85149; }
+
+  /* ── Log display ── */
+  #log-display {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    background: #0d1117;
+  }
+
+  #log-display::-webkit-scrollbar { width: 8px; }
+  #log-display::-webkit-scrollbar-track { background: #161b22; }
+  #log-display::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+  #log-display::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+  .log-line {
+    display: flex;
+    align-items: baseline;
+    padding: 1px 16px;
+    border-bottom: 1px solid transparent;
+    line-height: 1.6;
+    transition: background 0.08s;
+    position: relative;
+  }
+  .log-line:hover { background: #161b22; }
+
+  .log-line.is-center::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #e3b341;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .line-num {
+    color: #484f58;
+    font-size: 11px;
+    min-width: 52px;
+    text-align: right;
+    padding-right: 16px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .line-text {
+    white-space: pre-wrap;
+    word-break: break-all;
+    flex: 1;
+  }
+
+  /* Log level coloring */
+  .line-text.level-error { color: #f85149; }
+  .line-text.level-warn  { color: #d29922; }
+  .line-text.level-info  { color: #c9d1d9; }
+  .line-text.level-debug { color: #6e7681; }
+  .line-text.level-trace { color: #484f58; }
+
+  /* Grep highlight */
+  .hl {
+    background: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+    border-radius: 2px;
+    padding: 0 1px;
+    outline: 1px solid rgba(63, 185, 80, 0.25);
+    outline-offset: -1px;
+  }
+
+  /* Math prefix highlight */
+  .hl-math {
+    background: rgba(88, 166, 255, 0.12);
+    color: #58a6ff;
+    border-radius: 2px;
+    padding: 0 1px;
+    outline: 1px solid rgba(88, 166, 255, 0.2);
+    outline-offset: -1px;
+  }
+
+  /* Inline remove redaction */
+  .rm-inline {
+    display: inline-block;
+    width: 1.2em;
+    height: 0.85em;
+    background: rgba(248, 81, 73, 0.18);
+    border-radius: 2px;
+    outline: 1px solid rgba(248, 81, 73, 0.22);
+    outline-offset: -1px;
+    vertical-align: middle;
+  }
+
+  .empty-state {
+    padding: 60px;
+    text-align: center;
+    color: #484f58;
+  }
+
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <img src="icon.svg" width="26" height="26" alt="" style="border-radius:6px;flex-shrink:0">
+    <!-- <h1>LOGER</h1> -->
+    <button class="btn" id="load-new-btn" style="display:none">Load new</button>
+    <button class="btn" id="clear-btn" style="display:none">Clear</button>
+    <button class="btn" id="select-btn" style="display:none">Select result</button>
+    <button class="btn" id="new-window-btn" style="display:none">New window</button>
+    <a class="btn readme-btn" href="https://github.com/shumilovsergey/loger/blob/main/README.md" target="_blank" rel="noopener">README</a>
+  </div>
+  <div class="col-divider"></div>
+  <div class="header-right">
+    <span class="log-count" id="log-count">0 / 0 lines</span>
+  </div>
+</header>
+
+<main>
+  <!-- Load screen -->
+  <div id="load-area">
+    <div class="drop-zone" id="drop-zone">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="12" y2="12"/>
+        <line x1="15" y1="15" x2="12" y2="12"/>
+      </svg>
+      <p><strong>Drop a log file here</strong><br>or click to browse</p>
+      <div class="format-tags">
+        <span class="format-tag">.log</span>
+        <span class="format-tag">.txt</span>
+        <span class="format-tag">.out</span>
+        <span class="format-tag">.err</span>
+        <span class="format-tag">.json</span>
+        <span class="format-tag">.jsonl</span>
+        <span class="format-tag">.ndjson</span>
+        <span class="format-tag">.csv</span>
+      </div>
+      <div class="drop-error" id="drop-error">Unsupported file format</div>
+    </div>
+
+    <div class="paste-area-wrap">
+      <label>or paste log text</label>
+      <textarea id="paste-input" placeholder="Paste log lines here..."></textarea>
+      <div style="margin-top:8px; display:flex; justify-content:flex-end;">
+        <button class="btn primary" id="paste-load-btn">Load</button>
+      </div>
+    </div>
+
+    <input type="file" id="file-input" accept=".log,.txt,.out,.err,.json,.jsonl,.ndjson,.csv">
+  </div>
+
+  <!-- Workspace -->
+  <div id="workspace" class="hidden">
+
+    <!-- Focus bar -->
+    <div id="focus-bar">
+
+      <!-- Focus column -->
+      <div class="condition-col">
+        <div class="condition-col-header">
+          <span class="col-label focus">Focus</span>
+          <span style="color:#484f58;font-size:10px">center line context</span>
+        </div>
+        <div class="focus-fields-row">
+          <div class="focus-field">
+            <label>center</label>
+            <input type="number" id="focus-center" value="0" min="0" placeholder="0">
+          </div>
+          <span class="focus-sep">±</span>
+          <div class="focus-field">
+            <label>before</label>
+            <input type="number" id="focus-before" value="0" min="0" placeholder="0">
+          </div>
+          <div class="focus-field">
+            <label>after</label>
+            <input type="number" id="focus-after" value="0" min="0" placeholder="0">
+          </div>
+          <div class="focus-actions">
+            <button class="focus-pill-btn active" id="focus-toggle-btn" title="Toggle focus">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              on
+            </button>
+            <button class="focus-pill-btn delete" id="focus-reset-btn" title="Reset focus">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-divider"></div>
+
+      <!-- Remove column -->
+      <div class="condition-col" id="remove-col">
+        <div class="condition-col-header">
+          <span class="col-label remove">Remove</span>
+          <span style="color:#484f58;font-size:10px">hide matching</span>
+        </div>
+        <div class="condition-list" id="remove-list"></div>
+        <button class="add-condition-btn remove-add" id="add-remove-btn">+ add</button>
+      </div>
+
+    </div>
+
+    <div id="conditions-bar">
+      <!-- Grep column -->
+      <div class="condition-col" id="grep-col">
+        <div class="condition-col-header">
+          <span class="col-label grep">Grep</span>
+          <span style="color:#484f58;font-size:10px">show only matching</span>
+        </div>
+        <div class="condition-list" id="grep-list"></div>
+        <button class="add-condition-btn grep-add" id="add-grep-btn">+ add</button>
+      </div>
+
+      <div class="col-divider"></div>
+
+      <!-- Math column -->
+      <div class="condition-col">
+        <div class="condition-col-header">
+          <span class="col-label math">Math</span>
+          <span style="color:#484f58;font-size:10px">filter by number value</span>
+        </div>
+        <div class="condition-list" id="math-list"></div>
+        <button class="add-condition-btn math-add" id="add-math-btn">+ add</button>
+      </div>
+    </div>
+
+    <div id="log-display"></div>
+  </div>
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let rawLines = [];
+  let grepConditions = [];   // { id, pattern, enabled }
+  let removeConditions = []; // { id, pattern, enabled }
+  let mathConditions = [];   // { id, op, value, enabled }
+  let nextId = 1;
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const loadArea       = document.getElementById('load-area');
+  const workspace      = document.getElementById('workspace');
+  const dropZone       = document.getElementById('drop-zone');
+  const fileInput      = document.getElementById('file-input');
+  const pasteInput     = document.getElementById('paste-input');
+  const pasteLoadBtn   = document.getElementById('paste-load-btn');
+  const logDisplay     = document.getElementById('log-display');
+  const grepList       = document.getElementById('grep-list');
+  const removeList     = document.getElementById('remove-list');
+  const addGrepBtn     = document.getElementById('add-grep-btn');
+  const addRemoveBtn   = document.getElementById('add-remove-btn');
+  const loadNewBtn     = document.getElementById('load-new-btn');
+  const clearBtn       = document.getElementById('clear-btn');
+  const selectBtn      = document.getElementById('select-btn');
+  const newWindowBtn   = document.getElementById('new-window-btn');
+  const logCount       = document.getElementById('log-count');
+  const mathList       = document.getElementById('math-list');
+  const addMathBtn     = document.getElementById('add-math-btn');
+  const focusBar       = document.getElementById('focus-bar');
+  const focusCenterEl  = document.getElementById('focus-center');
+  const focusBeforeEl  = document.getElementById('focus-before');
+  const focusAfterEl   = document.getElementById('focus-after');
+  const focusToggleBtn = document.getElementById('focus-toggle-btn');
+  const focusResetBtn  = document.getElementById('focus-reset-btn');
+
+  // ── Focus state ────────────────────────────────────────────────────────────
+  let focusEnabled = true;
+
+  function getFocusWindow() {
+    const center = parseInt(focusCenterEl.value) || 0;
+    const before = parseInt(focusBeforeEl.value) || 0;
+    const after  = parseInt(focusAfterEl.value)  || 0;
+    return { center, before, after };
+  }
+
+  // Returns the slice of rawLines to pass through conditions (0-based indices, inclusive)
+  function applyFocus(lines) {
+    if (!focusEnabled) return { lines, offset: 0 };
+    const { center, before, after } = getFocusWindow();
+    if (center === 0) return { lines, offset: 0 }; // 0 = disabled
+    const zeroCenter = center - 1; // convert to 0-based
+    const start = Math.max(0, zeroCenter - before);
+    const end   = Math.min(lines.length - 1, zeroCenter + after);
+    return { lines: lines.slice(start, end + 1), offset: start };
+  }
+
+  focusCenterEl.addEventListener('input', renderLogs);
+  focusBeforeEl.addEventListener('input', renderLogs);
+  focusAfterEl.addEventListener('input',  renderLogs);
+
+  focusToggleBtn.addEventListener('click', () => {
+    focusEnabled = !focusEnabled;
+    focusToggleBtn.classList.toggle('active', focusEnabled);
+    focusToggleBtn.innerHTML = focusEnabled
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg> off`;
+    renderLogs();
+  });
+
+  focusResetBtn.addEventListener('click', () => {
+    focusCenterEl.value = 0;
+    focusBeforeEl.value = 0;
+    focusAfterEl.value  = 0;
+    focusEnabled = true;
+    focusToggleBtn.classList.add('active');
+    focusToggleBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`;
+    renderLogs();
+  });
+
+  // ── Math conditions ────────────────────────────────────────────────────────
+  const NUMBER_RE = /-?\d+(?:\.\d+)?/g;
+
+  const OPS = ['>', '<', '>=', '<=', '==', '!='];
+
+  function evalMathOp(num, op, val) {
+    switch (op) {
+      case '>':  return num >  val;
+      case '<':  return num <  val;
+      case '>=': return num >= val;
+      case '<=': return num <= val;
+      case '==': return num === val;
+      case '!=': return num !== val;
+    }
+    return false;
+  }
+
+  // Each condition is checked independently; line passes if ALL conditions pass.
+  // With prefix: find first number immediately after the prefix text, check it.
+  // Without prefix: any number in the line must satisfy the condition.
+  function lineSatisfiesMath(line, activeMath) {
+    if (!activeMath.length) return true;
+    return activeMath.every(cond => {
+      const { prefix, op, value } = cond;
+      if (prefix && prefix.trim()) {
+        const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const m = new RegExp(esc + '(-?\\d+(?:\\.\\d+)?)', 'i').exec(line);
+        if (!m) return false;
+        return evalMathOp(parseFloat(m[1]), op, value);
+      }
+      const nums = [...line.matchAll(NUMBER_RE)].map(m => parseFloat(m[0]));
+      return nums.some(n => evalMathOp(n, op, value));
+    });
+  }
+
+  function renderMathConditions() {
+    mathList.innerHTML = '';
+    mathConditions.forEach(cond => {
+      const pill = document.createElement('div');
+      pill.className = `math-pill${cond.enabled ? '' : ' disabled'}`;
+
+      const prefixInput = document.createElement('input');
+      prefixInput.type = 'text';
+      prefixInput.className = 'math-prefix-input';
+      prefixInput.value = cond.prefix || '';
+      prefixInput.placeholder = 'N';
+      prefixInput.title = 'Optional text prefix before the number';
+      prefixInput.style.width = Math.max(20, (cond.prefix || '').length * 8) + 'px';
+      prefixInput.addEventListener('input', () => {
+        cond.prefix = prefixInput.value;
+        prefixInput.style.width = Math.max(20, prefixInput.value.length * 8) + 'px';
+        renderLogs();
+      });
+
+      const opSel = document.createElement('select');
+      opSel.className = 'math-op-select';
+      OPS.forEach(op => {
+        const opt = document.createElement('option');
+        opt.value = op; opt.textContent = op;
+        if (op === cond.op) opt.selected = true;
+        opSel.appendChild(opt);
+      });
+      opSel.addEventListener('change', () => { cond.op = opSel.value; renderLogs(); });
+
+      const valInput = document.createElement('input');
+      valInput.type = 'number';
+      valInput.className = 'math-val-input';
+      valInput.value = cond.value ?? '';
+      valInput.placeholder = '0';
+      valInput.addEventListener('input', () => {
+        cond.value = valInput.value === '' ? null : parseFloat(valInput.value);
+        renderLogs();
+      });
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'pill-btn toggle-btn';
+      toggleBtn.title = cond.enabled ? 'Disable' : 'Enable';
+      toggleBtn.innerHTML = cond.enabled
+        ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
+        : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+      toggleBtn.addEventListener('click', () => {
+        cond.enabled = !cond.enabled;
+        renderMathConditions();
+        renderLogs();
+      });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'pill-btn delete-btn';
+      deleteBtn.title = 'Delete';
+      deleteBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      deleteBtn.addEventListener('click', () => {
+        mathConditions = mathConditions.filter(c => c.id !== cond.id);
+        renderMathConditions();
+        renderLogs();
+      });
+
+      pill.appendChild(prefixInput);
+      pill.appendChild(opSel);
+      pill.appendChild(valInput);
+      pill.appendChild(toggleBtn);
+      pill.appendChild(deleteBtn);
+      mathList.appendChild(pill);
+    });
+  }
+
+  addMathBtn.addEventListener('click', () => {
+    mathConditions.push({ id: nextId++, prefix: '', op: '>', value: null, enabled: true });
+    renderMathConditions();
+    const pills = mathList.querySelectorAll('.math-pill');
+    pills[pills.length - 1]?.querySelector('input')?.focus();
+  });
+
+  // ── Pattern matching ───────────────────────────────────────────────────────
+  // * = any chars, ? = one char, always unanchored (matches anywhere in line)
+  function globToRegex(pattern) {
+    const onlyTrailingStar = /^[^*]+\*$/.test(pattern);
+    const onlyLeadingStar  = /^\*[^*]+$/.test(pattern);
+    const escaped = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*?')
+      .replace(/\?/g, '.');
+    return new RegExp((onlyTrailingStar ? '^' : '') + escaped + (onlyLeadingStar ? '$' : ''), 'i');
+  }
+
+  function lineMatches(line, pattern) {
+    if (!pattern.trim()) return false;
+    try { return globToRegex(pattern).test(line); }
+    catch { return line.toLowerCase().includes(pattern.toLowerCase()); }
+  }
+
+  // ── Log level detection ────────────────────────────────────────────────────
+  function detectLevel(line) {
+    const l = line.toLowerCase();
+    if (/\b(error|err|fatal|crit)\b/.test(l)) return 'error';
+    if (/\b(warn|warning)\b/.test(l))         return 'warn';
+    if (/\b(info)\b/.test(l))                 return 'info';
+    if (/\b(debug|dbg)\b/.test(l))            return 'debug';
+    if (/\b(trace|verbose)\b/.test(l))        return 'trace';
+    return 'info';
+  }
+
+  // ── Render helpers ─────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Extract the literal text from a glob pattern (strip * and ?)
+  function patternLiteral(pattern) {
+    return pattern.replace(/[*?]/g, '').trim();
+  }
+
+  // Classify a remove pattern into how it should be handled:
+  //   hide    → whole-line hide (glob with * on both sides, or complex glob)
+  //   literal → redact just the literal text
+  //   left    → redact from line start through end of match  (*text)
+  //   right   → redact from start of match through end of line  (text*)
+  function classifyRemove(pattern) {
+    const p = pattern.trim();
+    const lead  = p.startsWith('*');
+    const trail = p.endsWith('*');
+    const stripped = p.replace(/^\*+/, '').replace(/\*+$/, '').trim();
+    if (lead && trail)  return { type: 'hide',  literal: stripped };
+    if (lead && !trail) return { type: 'left',  literal: stripped };
+    if (!lead && trail) return { type: 'right', literal: stripped };
+    // Single interior *: text1*text2 → redact from text1 to first text2 after it
+    const starIdx = p.indexOf('*');
+    if (starIdx > 0 && starIdx === p.lastIndexOf('*') && !p.includes('?')) {
+      return { type: 'span', prefix: p.slice(0, starIdx), suffix: p.slice(starIdx + 1) };
+    }
+    if (/[*?]/.test(p)) return { type: 'hide', literal: p }; // complex glob → hide line
+    return { type: 'literal', literal: p };
+  }
+
+  // Compute redact intervals for a line given inline redact instructions.
+  // Each instruction claims only the first uncovered match (left to right, one per condition).
+  function computeRedactIntervals(text, redactInstructions) {
+    const intervals = [];
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    redactInstructions.forEach(instr => {
+      const { type } = instr;
+
+      if (type === 'span') {
+        // text1*text2 — non-greedy: shortest match from prefix to first suffix
+        const { prefix, suffix } = instr;
+        if (!prefix && !suffix) return;
+        const re = new RegExp(esc(prefix) + '[\\s\\S]*?' + esc(suffix), 'i');
+        const m = re.exec(text);
+        if (!m) return;
+        const already = intervals.some(iv => iv.start <= m.index && iv.end >= m.index + m[0].length);
+        if (!already) intervals.push({ start: m.index, end: m.index + m[0].length });
+        return;
+      }
+
+      const { literal } = instr;
+      if (!literal) return;
+      const re = new RegExp(esc(literal), 'gi');
+      let m;
+      if (type === 'right') {
+        // find LAST uncovered match (right to left), delete from after match to end of line
+        let lastMatch = null;
+        while ((m = re.exec(text)) !== null) {
+          const already = intervals.some(iv => iv.start <= m.index && iv.end >= m.index + m[0].length);
+          if (!already) lastMatch = m;
+        }
+        if (lastMatch) intervals.push({ start: lastMatch.index + lastMatch[0].length, end: text.length });
+        return;
+      }
+      while ((m = re.exec(text)) !== null) {
+        const already = intervals.some(iv => iv.start <= m.index && iv.end >= m.index + m[0].length);
+        if (already) continue;
+        // left: delete from line start up to (not including) the match
+        // literal: delete exactly the match
+        const start = type === 'left' ? 0         : m.index;
+        const end   = type === 'left' ? m.index   : m.index + m[0].length;
+        intervals.push({ start, end });
+        break;
+      }
+    });
+    return intervals;
+  }
+
+  // Apply inline redactions to plain text (for math filtering on visible content only).
+  function stripRedacted(text, redactInstructions) {
+    const intervals = computeRedactIntervals(text, redactInstructions);
+    if (!intervals.length) return text;
+    intervals.sort((a, b) => a.start - b.start);
+    let result = '', pos = 0;
+    for (const iv of intervals) {
+      if (iv.start > pos) result += text.slice(pos, iv.start);
+      pos = iv.end;
+    }
+    return result + text.slice(pos);
+  }
+
+  // Tight regex for highlighting: * stops at common delimiters so it doesn't
+  // jump across JSON field boundaries (e.g. "field":"value").
+  function globToRegexHighlight(pattern) {
+    const escaped = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '[^",:{}\\[\\]]*?')
+      .replace(/\?/g, '[^",:{}\\[\\]]');
+    return new RegExp(escaped, 'gi');
+  }
+
+  // Priority: rm=3 beats mhl=2 beats hl=1
+  const PRIO = { rm: 3, mhl: 2, hl: 1 };
+
+  // Build line HTML: grep highlights (green), math prefix highlights (blue), inline redactions (red block).
+  // Uses character-level painting so higher-priority spans (rm > mhl > hl) correctly clip lower ones
+  // without dropping the remainder of a lower-priority span.
+  function buildLineHtml(text, hlPatterns, redactInstructions, mathPrefixes = [], mathHighlightNums = false) {
+    const n = text.length;
+    const charType = new Array(n).fill(null);
+
+    const paint = (start, end, type) => {
+      for (let i = start; i < end; i++) {
+        if (!charType[i] || PRIO[type] > PRIO[charType[i]]) charType[i] = type;
+      }
+    };
+
+    hlPatterns.forEach(pat => {
+      if (!pat.trim()) return;
+      const re = globToRegexHighlight(pat);
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        paint(m.index, m.index + m[0].length, 'hl');
+        if (m[0].length === 0) { re.lastIndex++; }
+      }
+    });
+
+    mathPrefixes.forEach(prefix => {
+      if (!prefix) return;
+      const re = new RegExp(prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      let m;
+      while ((m = re.exec(text)) !== null)
+        paint(m.index, m.index + m[0].length, 'mhl');
+    });
+
+    if (mathHighlightNums) {
+      const re = /-?\d+(?:\.\d+)?/g;
+      let m;
+      while ((m = re.exec(text)) !== null)
+        paint(m.index, m.index + m[0].length, 'mhl');
+    }
+
+    computeRedactIntervals(text, redactInstructions)
+      .forEach(iv => paint(iv.start, iv.end, 'rm'));
+
+    if (charType.every(t => t === null)) return escHtml(text);
+
+    let html = '';
+    let i = 0;
+    while (i < n) {
+      const type = charType[i];
+      let j = i + 1;
+      while (j < n && charType[j] === type) j++;
+      const chunk = text.slice(i, j);
+      if (type === null)   html += escHtml(chunk);
+      else if (type === 'hl')  html += `<mark class="hl">${escHtml(chunk)}</mark>`;
+      else if (type === 'mhl') html += `<mark class="hl-math">${escHtml(chunk)}</mark>`;
+      else html += `<span class="rm-inline"></span>`;
+      i = j;
+    }
+    return html;
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────────
+  function renderLogs() {
+    const activeGreps   = grepConditions.filter(c => c.enabled && c.pattern.trim());
+    const activeRemoves = removeConditions.filter(c => c.enabled && c.pattern.trim());
+    const activeMath    = mathConditions.filter(c => c.enabled && c.value !== null && c.value !== undefined && c.value !== '');
+
+    // Classify each remove condition
+    const classified   = activeRemoves.map(c => ({ cond: c, cls: classifyRemove(c.pattern) }));
+    const globRemoves  = classified.filter(({ cls }) => cls.type === 'hide');
+    const inlineRedacts = classified
+      .filter(({ cls }) => cls.type !== 'hide')
+      .map(({ cls }) => cls);
+
+    // 1. Apply focus window first (operates on original line indices)
+    const { lines: focusedLines, offset: focusOffset } = applyFocus(rawLines);
+
+    // 2. Apply grep / glob-remove / math conditions on the focused slice
+    const filtered = [];
+    const origLineNums = [];
+    focusedLines.forEach((line, i) => {
+      const origLineNum = focusOffset + i + 1; // 1-based original line number
+      if (globRemoves.some(({ cond }) => lineMatches(line, cond.pattern))) return;
+      const visibleLine = inlineRedacts.length ? stripRedacted(line, inlineRedacts) : line;
+      if (activeGreps.length > 0 && !activeGreps.every(c => lineMatches(visibleLine, c.pattern))) return;
+      if (!lineSatisfiesMath(visibleLine, activeMath)) return;
+      filtered.push(line);
+      origLineNums.push(origLineNum);
+    });
+
+    if (filtered.length === 0 && rawLines.length > 0) {
+      logDisplay.innerHTML = '<div class="empty-state">No lines match current conditions.</div>';
+      logCount.textContent = `0 / ${rawLines.length} lines`;
+      return;
+    }
+
+    logCount.textContent = `${filtered.length} / ${rawLines.length} lines`;
+
+    const hlPatterns  = activeGreps.map(c => c.pattern).filter(p => p.trim().length > 0);
+    const redactInstructions = inlineRedacts.filter(r =>
+      r.type === 'span' ? (r.prefix || r.suffix) : r.literal && r.literal.length > 0
+    );
+    const allEnabledMath = mathConditions.filter(c => c.enabled);
+    const mathPrefixes = allEnabledMath.map(c => c.prefix && c.prefix.trim()).filter(Boolean);
+    const mathHighlightNums = allEnabledMath.some(c => !(c.prefix && c.prefix.trim()));
+
+    // Use a document fragment for performance
+    const frag = document.createDocumentFragment();
+
+    const focusCenter = parseInt(focusCenterEl.value) || 0;
+
+    filtered.forEach((line, i) => {
+      const div = document.createElement('div');
+      const isCenter = focusEnabled && focusCenter > 0 && origLineNums[i] === focusCenter;
+      div.className = 'log-line' + (isCenter ? ' is-center' : '');
+
+      const numSpan = document.createElement('span');
+      numSpan.className = 'line-num';
+      numSpan.textContent = origLineNums[i];
+
+      const textSpan = document.createElement('span');
+      textSpan.className = `line-text level-${detectLevel(line)}`;
+      textSpan.innerHTML = buildLineHtml(line, hlPatterns, redactInstructions, mathPrefixes, mathHighlightNums);
+
+      div.appendChild(numSpan);
+      div.appendChild(textSpan);
+      frag.appendChild(div);
+    });
+
+    logDisplay.innerHTML = '';
+    logDisplay.appendChild(frag);
+  }
+
+  // ── Condition UI ───────────────────────────────────────────────────────────
+  function createPill(type, cond) {
+    const pill = document.createElement('div');
+    pill.className = `condition-pill ${type}-pill${cond.enabled ? '' : ' disabled'}`;
+    pill.dataset.id = cond.id;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = cond.pattern;
+    input.placeholder = type === 'grep' ? '{* or *text*' : '*200* or ERROR';
+    input.title = 'Glob pattern: * = anything, ? = one char';
+
+    input.addEventListener('input', () => {
+      cond.pattern = input.value;
+      // Auto-resize input
+      input.style.width = Math.max(80, input.value.length * 8) + 'px';
+      renderLogs();
+    });
+
+    // Auto-resize on load
+    if (cond.pattern) input.style.width = Math.max(80, cond.pattern.length * 8) + 'px';
+
+    // Toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'pill-btn toggle-btn';
+    toggleBtn.title = cond.enabled ? 'Disable condition' : 'Enable condition';
+    toggleBtn.innerHTML = cond.enabled
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+    toggleBtn.addEventListener('click', () => {
+      cond.enabled = !cond.enabled;
+      renderConditions();
+      renderLogs();
+    });
+
+    // Delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'pill-btn delete-btn';
+    deleteBtn.title = 'Delete condition';
+    deleteBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    deleteBtn.addEventListener('click', () => {
+      if (type === 'grep') {
+        grepConditions = grepConditions.filter(c => c.id !== cond.id);
+      } else {
+        removeConditions = removeConditions.filter(c => c.id !== cond.id);
+      }
+      renderConditions();
+      renderLogs();
+    });
+
+    pill.appendChild(input);
+    pill.appendChild(toggleBtn);
+    pill.appendChild(deleteBtn);
+    return pill;
+  }
+
+  function renderConditions() {
+    grepList.innerHTML = '';
+    removeList.innerHTML = '';
+    grepConditions.forEach(c => grepList.appendChild(createPill('grep', c)));
+    removeConditions.forEach(c => removeList.appendChild(createPill('remove', c)));
+  }
+
+  function addCondition(type) {
+    const cond = { id: nextId++, pattern: '', enabled: true };
+    if (type === 'grep') grepConditions.push(cond);
+    else removeConditions.push(cond);
+    renderConditions();
+    // Focus the new input
+    const list = type === 'grep' ? grepList : removeList;
+    const pills = list.querySelectorAll('.condition-pill');
+    const lastPill = pills[pills.length - 1];
+    if (lastPill) lastPill.querySelector('input')?.focus();
+  }
+
+  addGrepBtn.addEventListener('click', () => addCondition('grep'));
+  addRemoveBtn.addEventListener('click', () => addCondition('remove'));
+
+  // ── Format validation ──────────────────────────────────────────────────────
+  const ALLOWED_EXTS = new Set(['.log','.txt','.out','.err','.json','.jsonl','.ndjson','.csv']);
+  const dropError = document.getElementById('drop-error');
+
+  function getExt(filename) {
+    const m = filename.match(/(\.[^.]+)$/);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function isAllowed(filename) {
+    return ALLOWED_EXTS.has(getExt(filename));
+  }
+
+  function showFormatError(filename) {
+    const ext = getExt(filename) || '(no extension)';
+    dropError.textContent = `Unsupported format: ${ext}`;
+    dropError.classList.add('visible');
+    setTimeout(() => dropError.classList.remove('visible'), 3000);
+  }
+
+  // ── Load logs ──────────────────────────────────────────────────────────────
+  function loadText(text) {
+    rawLines = text.split('\n').filter((_, i, arr) => {
+      // Keep all lines except trailing empty lines at the very end
+      return true;
+    });
+    // Remove trailing blank lines
+    while (rawLines.length && rawLines[rawLines.length - 1].trim() === '') rawLines.pop();
+
+    if (rawLines.length === 0) return;
+
+    loadArea.classList.add('hidden');
+    workspace.classList.remove('hidden');
+    loadNewBtn.style.display = '';
+    clearBtn.style.display = '';
+    selectBtn.style.display = '';
+    newWindowBtn.style.display = '';
+
+    renderLogs();
+  }
+
+  // File drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = '';
+    if (!isAllowed(file.name)) { showFormatError(file.name); return; }
+    const reader = new FileReader();
+    reader.onload = e => loadText(e.target.result);
+    reader.readAsText(file);
+  });
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!isAllowed(file.name)) { showFormatError(file.name); return; }
+    const reader = new FileReader();
+    reader.onload = ev => loadText(ev.target.result);
+    reader.readAsText(file);
+  });
+
+  // Paste load
+  pasteLoadBtn.addEventListener('click', () => {
+    const text = pasteInput.value.trim();
+    if (!text) return;
+    loadText(text);
+    pasteInput.value = '';
+  });
+
+  pasteInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      pasteLoadBtn.click();
+    }
+  });
+
+  // Select all visible log text so user can Ctrl+C
+  selectBtn.addEventListener('click', () => {
+    const range = document.createRange();
+    range.selectNodeContents(logDisplay);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+
+  // Open a fresh instance in a new tab
+  newWindowBtn.addEventListener('click', () => {
+    window.open(window.location.href, '_blank');
+  });
+
+  function resetFocus() {
+    focusCenterEl.value = 0;
+    focusBeforeEl.value = 0;
+    focusAfterEl.value  = 0;
+    focusEnabled = true;
+    focusToggleBtn.classList.add('active');
+    focusToggleBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`;
+  }
+
+  // Load new / clear
+  loadNewBtn.addEventListener('click', () => {
+    loadArea.classList.remove('hidden');
+    workspace.classList.add('hidden');
+    loadNewBtn.style.display = 'none';
+    clearBtn.style.display = 'none';
+    selectBtn.style.display = 'none';
+    newWindowBtn.style.display = 'none';
+    logCount.textContent = '0 / 0 lines';
+    rawLines = [];
+    grepConditions = [];
+    removeConditions = [];
+    mathConditions = [];
+    resetFocus();
+    renderConditions();
+    renderMathConditions();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    grepConditions = [];
+    removeConditions = [];
+    mathConditions = [];
+    resetFocus();
+    renderConditions();
+    renderMathConditions();
+    renderLogs();
+  });
+
+  // Global paste shortcut (Ctrl/Cmd+V on load screen)
+  document.addEventListener('paste', e => {
+    if (!loadArea.classList.contains('hidden')) {
+      const text = e.clipboardData.getData('text');
+      if (text && text.includes('\n')) {
+        loadText(text);
+        e.preventDefault();
+      }
+    }
+  });
+</script>
+</body>
+</html>

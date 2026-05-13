@@ -240,7 +240,9 @@ function renderScripts() {
     list.appendChild(addRow);
   }
 
-  // restore immediately (sync) AND after autoResize RAFs finish
+  // resize textareas synchronously (forces reflow) so page height is
+  // correct before scroll is restored — avoids the scroll being clamped
+  list.querySelectorAll('.sc-ta').forEach(ta => autoResize(ta));
   list.scrollTop = savedScroll;
   window.scrollTo(0, savedWinScroll);
   requestAnimationFrame(() => {
@@ -577,7 +579,8 @@ async function commitUserName() {
   exitUserEditMode();
   try {
     await api('PUT', '/api/users/me', { username: val });
-    $('userLbl').textContent = val;
+    $('userLbl').textContent     = val;
+    $('userInitial').textContent = init(val);
     setUserDisplay(val);
   } catch {
     toast('failed to save name');
@@ -600,7 +603,9 @@ function toggleDrop(id) {
 }
 
 function closeAllDrops() {
-  ['userDrop', 'grpDrop'].forEach(id => $(id).style.display = 'none');
+  $('grpDrop').style.display = 'none';
+  $('userDrop').classList.remove('open');
+  $('userTrig').classList.remove('open');
 }
 
 // ── CONFIRM MODAL ──
@@ -631,7 +636,12 @@ $('sbToggle').addEventListener('click', toggleSb);
 $('sbSearch').addEventListener('input', render);
 $('backBtn').addEventListener('click', () => { document.body.className = 'vg'; $('backBtn').style.display = 'none'; });
 
-$('userTrig').addEventListener('click', e => { e.stopPropagation(); toggleDrop('userDrop'); });
+$('userTrig').addEventListener('click', e => {
+  e.stopPropagation();
+  $('grpDrop').style.display = 'none';
+  const open = $('userDrop').classList.toggle('open');
+  $('userTrig').classList.toggle('open', open);
+});
 $('grpTrig').addEventListener('click',  e => { e.stopPropagation(); toggleDrop('grpDrop'); });
 $('userEditBtn').addEventListener('click',    e => { e.stopPropagation(); enterUserEditMode(); });
 $('userNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
@@ -654,7 +664,9 @@ $('delGrpRow').addEventListener('click',   e => {
     }
   });
 });
-document.addEventListener('click', e => { if (!e.target.closest('.dd')) closeAllDrops(); });
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dd') && !e.target.closest('.profile-area')) closeAllDrops();
+});
 
 // ── AUTH ──
 $('doLogin').addEventListener('click', () => {
@@ -666,8 +678,9 @@ async function initAuth() {
     const res  = await fetch('/auth/me', { credentials: 'include' });
     if (!res.ok) throw new Error();
     const user = await res.json();
-    $('userLbl').textContent = user.username;
-    userHash                 = user.user_hash;
+    $('userLbl').textContent     = user.username;
+    $('userInitial').textContent = init(user.username);
+    userHash                     = user.user_hash;
     setUserDisplay(user.username);
     $('loginWrap').style.display = 'none';
     $('appWrap').style.display   = 'flex';

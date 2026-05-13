@@ -397,7 +397,7 @@ function saveGroupName() {
 
 function saveUserName() {
   const val = $('userNameInp').value.trim();
-  if (val) $('userLbl').textContent = val;
+  if (val) $('userLbl').textContent = init(val);
   $('userDrop').style.display = 'none';
 }
 
@@ -473,7 +473,7 @@ async function initAuth() {
     const res  = await fetch('/auth/me', { credentials: 'include' });
     if (!res.ok) throw new Error();
     const user = await res.json();
-    $('userLbl').textContent   = user.username;
+    $('userLbl').textContent   = init(user.username);
     $('userNameInp').value     = user.username;
     $('loginWrap').style.display = 'none';
     $('appWrap').style.display   = 'flex';
