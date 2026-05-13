@@ -212,7 +212,6 @@ function renderScripts() {
         ta.addEventListener('keydown', e => { if (e.key === 'Backspace') handleBackspaceLine(e); });
         ta.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e); });
       }
-      requestAnimationFrame(() => autoResize(ta));
 
       const foot = document.createElement('div');
       foot.className = 'sc-foot';
@@ -240,8 +239,6 @@ function renderScripts() {
     list.appendChild(addRow);
   }
 
-  // resize textareas synchronously (forces reflow) so page height is
-  // correct before scroll is restored — avoids the scroll being clamped
   list.querySelectorAll('.sc-ta').forEach(ta => autoResize(ta));
   list.scrollTop = savedScroll;
   window.scrollTo(0, savedWinScroll);
@@ -317,7 +314,6 @@ function renderSearchResults(q) {
           taWrap.appendChild(hl);
           taWrap.appendChild(ta);
 
-          requestAnimationFrame(() => autoResize(ta));
           cont.appendChild(taWrap);
           item.appendChild(cont);
         }
