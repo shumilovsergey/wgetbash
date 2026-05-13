@@ -701,3 +701,375 @@ $('loginChev').addEventListener('click', () => {
 });
 
 initAuth();
+
+// ── TAB SWITCHING ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.view[data-view]').forEach(v => {
+      v.classList.toggle('active', v.dataset.view === target);
+    });
+  });
+});
+
+// ── LOGER ─────────────────────────────────────────────────────────────────
+(function () {
+  // state
+  let rawLines = [];
+  let grepConds   = [];  // { id, pattern, enabled }
+  let removeConds = [];  // { id, pattern, enabled }
+  let mathConds   = [];  // { id, prefix, op, value, enabled }
+  let focusOn = true;
+  let nextId  = 1;
+
+  // dom refs
+  const lgrLoad      = document.getElementById('lgrLoad');
+  const lgrWorkspace = document.getElementById('lgrWorkspace');
+  const lgrDropZone  = document.getElementById('lgrDropZone');
+  const lgrFile      = document.getElementById('lgrFile');
+  const lgrPaste     = document.getElementById('lgrPaste');
+  const lgrPasteLoad = document.getElementById('lgrPasteLoad');
+  const lgrDisplay   = document.getElementById('lgrDisplay');
+  const lgrGrepList  = document.getElementById('lgrGrepList');
+  const lgrRemoveList= document.getElementById('lgrRemoveList');
+  const lgrMathList  = document.getElementById('lgrMathList');
+  const lgrAddGrep   = document.getElementById('lgrAddGrep');
+  const lgrAddRemove = document.getElementById('lgrAddRemove');
+  const lgrAddMath   = document.getElementById('lgrAddMath');
+  const lgrActs      = document.getElementById('lgrActs');
+  const lgrCount     = document.getElementById('lgrCount');
+  const lgrLoadNewBtn= document.getElementById('lgrLoadNewBtn');
+  const lgrClearBtn  = document.getElementById('lgrClearBtn');
+  const lgrSelectBtn = document.getElementById('lgrSelectBtn');
+  const lgrNewWinBtn = document.getElementById('lgrNewWindowBtn');
+  const lgrDropErr   = document.getElementById('lgrDropErr');
+  const lgrFocusCenter = document.getElementById('lgrFocusCenter');
+  const lgrFocusBefore = document.getElementById('lgrFocusBefore');
+  const lgrFocusAfter  = document.getElementById('lgrFocusAfter');
+  const lgrFocusToggle = document.getElementById('lgrFocusToggle');
+  const lgrFocusReset  = document.getElementById('lgrFocusReset');
+
+  // ── utils ──────────────────────────────────────────────────────────────
+  function escH(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function globRe(pat) {
+    const tl = /^\*[^*]+$/.test(pat), ld = /^[^*]+\*$/.test(pat);
+    const esc = pat.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*?').replace(/\?/g,'.');
+    return new RegExp((ld ? '^' : '') + esc + (tl ? '$' : ''), 'i');
+  }
+  function globReHl(pat) {
+    const esc = pat.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'[^",:{}\\[\\]]*?').replace(/\?/g,'[^",:{}\\[\\]]');
+    return new RegExp(esc, 'gi');
+  }
+  function lineMatches(line, pat) {
+    if (!pat.trim()) return false;
+    try { return globRe(pat).test(line); } catch { return line.toLowerCase().includes(pat.toLowerCase()); }
+  }
+  function detectLevel(line) {
+    const l = line.toLowerCase();
+    if (/\b(error|err|fatal|crit)\b/.test(l)) return 'error';
+    if (/\b(warn|warning)\b/.test(l))         return 'warn';
+    if (/\b(debug|dbg)\b/.test(l))            return 'debug';
+    if (/\b(trace|verbose)\b/.test(l))        return 'trace';
+    return 'info';
+  }
+
+  // ── focus ──────────────────────────────────────────────────────────────
+  function applyFocus(lines) {
+    if (!focusOn) return { lines, offset: 0 };
+    const center = parseInt(lgrFocusCenter.value) || 0;
+    if (!center) return { lines, offset: 0 };
+    const before = parseInt(lgrFocusBefore.value) || 0;
+    const after  = parseInt(lgrFocusAfter.value)  || 0;
+    const z = center - 1;
+    const s = Math.max(0, z - before), e = Math.min(lines.length - 1, z + after);
+    return { lines: lines.slice(s, e + 1), offset: s };
+  }
+  lgrFocusCenter.addEventListener('input', renderLogs);
+  lgrFocusBefore.addEventListener('input', renderLogs);
+  lgrFocusAfter.addEventListener('input',  renderLogs);
+  lgrFocusToggle.addEventListener('click', () => {
+    focusOn = !focusOn;
+    lgrFocusToggle.classList.toggle('active', focusOn);
+    lgrFocusToggle.innerHTML = focusOn
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg> off`;
+    renderLogs();
+  });
+  lgrFocusReset.addEventListener('click', () => {
+    lgrFocusCenter.value = lgrFocusBefore.value = lgrFocusAfter.value = 0;
+    focusOn = true;
+    lgrFocusToggle.classList.add('active');
+    lgrFocusToggle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`;
+    renderLogs();
+  });
+
+  // ── math ───────────────────────────────────────────────────────────────
+  const OPS = ['>', '<', '>=', '<=', '==', '!='];
+  const NUM_RE = /-?\d+(?:\.\d+)?/g;
+  function evalOp(n, op, v) {
+    return op==='>'?n>v:op==='<'?n<v:op==='>='?n>=v:op==='<='?n<=v:op==='=='?n===v:n!==v;
+  }
+  function mathPass(line, active) {
+    if (!active.length) return true;
+    return active.every(c => {
+      if (c.prefix && c.prefix.trim()) {
+        const e = c.prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        const m = new RegExp(e+'(-?\\d+(?:\\.\\d+)?)','i').exec(line);
+        return m ? evalOp(parseFloat(m[1]), c.op, c.value) : false;
+      }
+      return [...line.matchAll(NUM_RE)].some(m => evalOp(parseFloat(m[0]), c.op, c.value));
+    });
+  }
+
+  // ── remove classification ──────────────────────────────────────────────
+  function classifyRm(pat) {
+    const p = pat.trim(), lead = p.startsWith('*'), trail = p.endsWith('*');
+    const stripped = p.replace(/^\*+/,'').replace(/\*+$/,'').trim();
+    if (lead && trail)  return { type:'hide',  literal: stripped };
+    if (lead && !trail) return { type:'left',  literal: stripped };
+    if (!lead && trail) return { type:'right', literal: stripped };
+    const si = p.indexOf('*');
+    if (si > 0 && si === p.lastIndexOf('*') && !p.includes('?'))
+      return { type:'span', prefix: p.slice(0, si), suffix: p.slice(si + 1) };
+    if (/[*?]/.test(p)) return { type:'hide', literal: p };
+    return { type:'literal', literal: p };
+  }
+  function redactIntervals(text, instrs) {
+    const ivs = [];
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    instrs.forEach(instr => {
+      if (instr.type === 'span') {
+        if (!instr.prefix && !instr.suffix) return;
+        const m = new RegExp(esc(instr.prefix)+'[\\s\\S]*?'+esc(instr.suffix),'i').exec(text);
+        if (m && !ivs.some(iv => iv.s<=m.index && iv.e>=m.index+m[0].length))
+          ivs.push({ s: m.index, e: m.index+m[0].length });
+        return;
+      }
+      const { literal } = instr;
+      if (!literal) return;
+      const re = new RegExp(esc(literal),'gi'); let m;
+      if (instr.type === 'right') {
+        let last = null;
+        while ((m = re.exec(text)) !== null)
+          if (!ivs.some(iv=>iv.s<=m.index&&iv.e>=m.index+m[0].length)) last = m;
+        if (last) ivs.push({ s: last.index+last[0].length, e: text.length });
+        return;
+      }
+      while ((m = re.exec(text)) !== null) {
+        if (ivs.some(iv=>iv.s<=m.index&&iv.e>=m.index+m[0].length)) continue;
+        ivs.push({ s: instr.type==='left'?0:m.index, e: instr.type==='left'?m.index:m.index+m[0].length });
+        break;
+      }
+    });
+    return ivs;
+  }
+  function stripRedacted(text, instrs) {
+    const ivs = redactIntervals(text, instrs).sort((a,b)=>a.s-b.s);
+    let r='', pos=0;
+    for (const iv of ivs) { if (iv.s>pos) r+=text.slice(pos,iv.s); pos=iv.e; }
+    return r + text.slice(pos);
+  }
+
+  // ── line HTML builder ──────────────────────────────────────────────────
+  const PRIO = { rm:3, mhl:2, hl:1 };
+  function buildLineHtml(text, hlPats, instrs, mathPfx=[], mathHlNums=false) {
+    const n = text.length;
+    const ct = new Array(n).fill(null);
+    const paint = (s,e,t) => { for(let i=s;i<e;i++) if(!ct[i]||PRIO[t]>PRIO[ct[i]]) ct[i]=t; };
+    hlPats.forEach(p => { if(!p.trim()) return; const re=globReHl(p); let m; while((m=re.exec(text))!==null){paint(m.index,m.index+m[0].length,'hl');if(!m[0].length)re.lastIndex++;} });
+    mathPfx.forEach(p => { if(!p) return; const re=new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'); let m; while((m=re.exec(text))!==null) paint(m.index,m.index+m[0].length,'mhl'); });
+    if (mathHlNums) { const re=/-?\d+(?:\.\d+)?/g; let m; while((m=re.exec(text))!==null) paint(m.index,m.index+m[0].length,'mhl'); }
+    redactIntervals(text, instrs).forEach(iv => paint(iv.s, iv.e, 'rm'));
+    if (ct.every(t=>t===null)) return escH(text);
+    let html='', i=0;
+    while(i<n){const t=ct[i];let j=i+1;while(j<n&&ct[j]===t)j++;const c=text.slice(i,j);
+      html += t===null?escH(c):t==='hl'?`<mark class="lgr-hl">${escH(c)}</mark>`:t==='mhl'?`<mark class="lgr-hl-m">${escH(c)}</mark>`:`<span class="lgr-rm"></span>`;
+      i=j;}
+    return html;
+  }
+
+  // ── render logs ────────────────────────────────────────────────────────
+  function renderLogs() {
+    const aGrep   = grepConds.filter(c=>c.enabled&&c.pattern.trim());
+    const aRemove = removeConds.filter(c=>c.enabled&&c.pattern.trim());
+    const aMath   = mathConds.filter(c=>c.enabled&&c.value!==null&&c.value!==undefined&&c.value!=='');
+    const classified = aRemove.map(c=>({cond:c,cls:classifyRm(c.pattern)}));
+    const globRms    = classified.filter(({cls})=>cls.type==='hide');
+    const inlineRm   = classified.filter(({cls})=>cls.type!=='hide').map(({cls})=>cls);
+    const { lines: fl, offset: fo } = applyFocus(rawLines);
+    const filtered=[], nums=[];
+    fl.forEach((line, i) => {
+      const orig = fo + i + 1;
+      if (globRms.some(({cond})=>lineMatches(line,cond.pattern))) return;
+      const vis = inlineRm.length ? stripRedacted(line, inlineRm) : line;
+      if (aGrep.length && !aGrep.every(c=>lineMatches(vis,c.pattern))) return;
+      if (!mathPass(vis, aMath)) return;
+      filtered.push(line); nums.push(orig);
+    });
+    if (!filtered.length && rawLines.length) {
+      lgrDisplay.innerHTML = '<div class="lgr-empty">No lines match current conditions.</div>';
+      lgrCount.textContent = `0 / ${rawLines.length} lines`; return;
+    }
+    lgrCount.textContent = `${filtered.length} / ${rawLines.length} lines`;
+    const hlPats = aGrep.map(c=>c.pattern).filter(p=>p.trim());
+    const allMath = mathConds.filter(c=>c.enabled);
+    const mathPfx = allMath.map(c=>c.prefix&&c.prefix.trim()).filter(Boolean);
+    const mathHlNums = allMath.some(c=>!(c.prefix&&c.prefix.trim()));
+    const focCenter = parseInt(lgrFocusCenter.value)||0;
+    const frag = document.createDocumentFragment();
+    filtered.forEach((line,i) => {
+      const div = document.createElement('div');
+      div.className = 'lgr-line' + (focusOn&&focCenter>0&&nums[i]===focCenter?' center':'');
+      const num = document.createElement('span');
+      num.className = 'lgr-num'; num.textContent = nums[i];
+      const txt = document.createElement('span');
+      txt.className = `lgr-txt lvl-${detectLevel(line)}`;
+      txt.innerHTML = buildLineHtml(line, hlPats, inlineRm, mathPfx, mathHlNums);
+      div.appendChild(num); div.appendChild(txt); frag.appendChild(div);
+    });
+    lgrDisplay.innerHTML = ''; lgrDisplay.appendChild(frag);
+  }
+
+  // ── condition UI ───────────────────────────────────────────────────────
+  function makePill(type, cond) {
+    const pill = document.createElement('div');
+    pill.className = `lgr-pill ${type}-pill${cond.enabled?'':' off'}`;
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = cond.pattern;
+    inp.placeholder = type==='grep' ? '*text* or ERROR' : '*200* or ERROR';
+    inp.style.width = Math.max(80, inp.value.length*8)+'px';
+    inp.addEventListener('input', () => {
+      cond.pattern = inp.value;
+      inp.style.width = Math.max(80, inp.value.length*8)+'px';
+      renderLogs();
+    });
+    const tog = document.createElement('button');
+    tog.className = 'lgr-pbtn tog'; tog.title = cond.enabled?'disable':'enable';
+    tog.innerHTML = cond.enabled
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    tog.addEventListener('click', () => { cond.enabled=!cond.enabled; renderConds(); renderLogs(); });
+    const del = document.createElement('button');
+    del.className = 'lgr-pbtn del'; del.title = 'delete';
+    del.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    del.addEventListener('click', () => {
+      if (type==='grep') grepConds = grepConds.filter(c=>c.id!==cond.id);
+      else removeConds = removeConds.filter(c=>c.id!==cond.id);
+      renderConds(); renderLogs();
+    });
+    pill.appendChild(inp); pill.appendChild(tog); pill.appendChild(del);
+    return pill;
+  }
+
+  function makeMathPill(cond) {
+    const pill = document.createElement('div');
+    pill.className = 'lgr-math-pill' + (cond.enabled?'':' off');
+    const pfx = document.createElement('input'); pfx.type='text'; pfx.className='lgr-mpfx';
+    pfx.value=cond.prefix||''; pfx.placeholder='N'; pfx.title='optional prefix before number';
+    pfx.style.width=Math.max(20,(cond.prefix||'').length*8)+'px';
+    pfx.addEventListener('input', () => { cond.prefix=pfx.value; pfx.style.width=Math.max(20,pfx.value.length*8)+'px'; renderLogs(); });
+    const op = document.createElement('select'); op.className='lgr-mop';
+    OPS.forEach(o => { const opt=document.createElement('option'); opt.value=o; opt.textContent=o; if(o===cond.op) opt.selected=true; op.appendChild(opt); });
+    op.addEventListener('change', () => { cond.op=op.value; renderLogs(); });
+    const val = document.createElement('input'); val.type='number'; val.className='lgr-mval';
+    val.value=cond.value??''; val.placeholder='0';
+    val.addEventListener('input', () => { cond.value=val.value===''?null:parseFloat(val.value); renderLogs(); });
+    const tog = document.createElement('button'); tog.className='lgr-pbtn tog'; tog.title=cond.enabled?'disable':'enable';
+    tog.innerHTML = cond.enabled
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+    tog.addEventListener('click', () => { cond.enabled=!cond.enabled; renderMath(); renderLogs(); });
+    const del = document.createElement('button'); del.className='lgr-pbtn del'; del.title='delete';
+    del.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    del.addEventListener('click', () => { mathConds=mathConds.filter(c=>c.id!==cond.id); renderMath(); renderLogs(); });
+    pill.appendChild(pfx); pill.appendChild(op); pill.appendChild(val); pill.appendChild(tog); pill.appendChild(del);
+    return pill;
+  }
+
+  function renderConds() {
+    lgrGrepList.innerHTML = ''; lgrRemoveList.innerHTML = '';
+    grepConds.forEach(c => lgrGrepList.appendChild(makePill('grep', c)));
+    removeConds.forEach(c => lgrRemoveList.appendChild(makePill('remove', c)));
+  }
+  function renderMath() {
+    lgrMathList.innerHTML = '';
+    mathConds.forEach(c => lgrMathList.appendChild(makeMathPill(c)));
+  }
+
+  lgrAddGrep.addEventListener('click',   () => { grepConds.push({id:nextId++,pattern:'',enabled:true}); renderConds(); lgrGrepList.lastElementChild?.querySelector('input')?.focus(); });
+  lgrAddRemove.addEventListener('click', () => { removeConds.push({id:nextId++,pattern:'',enabled:true}); renderConds(); lgrRemoveList.lastElementChild?.querySelector('input')?.focus(); });
+  lgrAddMath.addEventListener('click',   () => { mathConds.push({id:nextId++,prefix:'',op:'>',value:null,enabled:true}); renderMath(); lgrMathList.lastElementChild?.querySelector('input')?.focus(); });
+
+  // ── load ───────────────────────────────────────────────────────────────
+  const ALLOWED = new Set(['.log','.txt','.out','.err','.json','.jsonl','.ndjson','.csv']);
+  function getExt(n) { const m=n.match(/(\.[^.]+)$/); return m?m[1].toLowerCase():''; }
+  function allowed(n) { return ALLOWED.has(getExt(n)); }
+  function showErr(n) {
+    lgrDropErr.textContent = `Unsupported: ${getExt(n)||'(no ext)'}`;
+    lgrDropErr.classList.add('show');
+    setTimeout(() => lgrDropErr.classList.remove('show'), 3000);
+  }
+
+  function loadText(text) {
+    rawLines = text.split('\n');
+    while (rawLines.length && !rawLines[rawLines.length-1].trim()) rawLines.pop();
+    if (!rawLines.length) return;
+    lgrLoad.style.display = 'none';
+    lgrWorkspace.style.display = 'flex';
+    lgrWorkspace.style.flexDirection = 'column';
+    lgrActs.style.display = 'flex';
+    renderLogs();
+  }
+
+  lgrDropZone.addEventListener('click', () => lgrFile.click());
+  lgrFile.addEventListener('change', () => {
+    const f = lgrFile.files[0]; if (!f) return; lgrFile.value='';
+    if (!allowed(f.name)) { showErr(f.name); return; }
+    const r = new FileReader(); r.onload = e => loadText(e.target.result); r.readAsText(f);
+  });
+  lgrDropZone.addEventListener('dragover', e => { e.preventDefault(); lgrDropZone.classList.add('over'); });
+  lgrDropZone.addEventListener('dragleave', () => lgrDropZone.classList.remove('over'));
+  lgrDropZone.addEventListener('drop', e => {
+    e.preventDefault(); lgrDropZone.classList.remove('over');
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    if (!allowed(f.name)) { showErr(f.name); return; }
+    const r = new FileReader(); r.onload = ev => loadText(ev.target.result); r.readAsText(f);
+  });
+  lgrPasteLoad.addEventListener('click', () => {
+    const t = lgrPaste.value.trim(); if (!t) return;
+    loadText(t); lgrPaste.value = '';
+  });
+  lgrPaste.addEventListener('keydown', e => { if (e.key==='Enter'&&(e.ctrlKey||e.metaKey)) lgrPasteLoad.click(); });
+
+  document.addEventListener('paste', e => {
+    if (document.querySelector('.tab[data-tab="loger"]')?.classList.contains('active') &&
+        lgrLoad.style.display !== 'none') {
+      const t = e.clipboardData.getData('text');
+      if (t && t.includes('\n')) { loadText(t); e.preventDefault(); }
+    }
+  });
+
+  function resetAll() {
+    grepConds=[]; removeConds=[]; mathConds=[];
+    lgrFocusCenter.value=lgrFocusBefore.value=lgrFocusAfter.value=0;
+    focusOn=true; lgrFocusToggle.classList.add('active');
+    lgrFocusToggle.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> on`;
+    renderConds(); renderMath();
+  }
+
+  lgrLoadNewBtn.addEventListener('click', () => {
+    rawLines = []; lgrLoad.style.display = ''; lgrWorkspace.style.display = 'none'; lgrActs.style.display = 'none';
+    lgrCount.textContent = '0 / 0 lines'; resetAll();
+  });
+  lgrClearBtn.addEventListener('click', () => { resetAll(); renderLogs(); });
+  lgrSelectBtn.addEventListener('click', () => {
+    const r = document.createRange(); r.selectNodeContents(lgrDisplay);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  });
+  lgrNewWinBtn.addEventListener('click', () => window.open(window.location.href, '_blank'));
+})();

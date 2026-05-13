@@ -40,9 +40,9 @@
   <!-- Header -->
   <nav class="navbar">
     <div class="nav-tabs">
-      <button class="tab active">wgetbash</button>
-      <button class="tab">text 2</button>
-      <button class="tab">text 3</button>
+      <button class="tab active" data-tab="wgetbash">wgetbash</button>
+      <button class="tab" data-tab="loger">loger</button>
+      <button class="tab" data-tab="text3">text 3</button>
     </div>
     <div class="profile-area">
       <button class="profile-btn" id="userTrig" title="menu">
@@ -71,7 +71,8 @@
     </div>
   </nav>
 
-  <!-- Main -->
+  <!-- Views -->
+  <div class="view active" data-view="wgetbash">
   <main class="main">
     <div class="app-box">
 
@@ -128,7 +129,115 @@
 
     </div>
   </main>
-</div>
+  </div><!-- /view wgetbash -->
+
+  <!-- ════ LOGER VIEW ════ -->
+  <div class="view" data-view="loger" id="viewLoger">
+
+    <!-- action bar (visible once logs are loaded) -->
+    <div class="lgr-acts" id="lgrActs" style="display:none">
+      <button class="lgr-btn" id="lgrLoadNewBtn">load new</button>
+      <button class="lgr-btn danger" id="lgrClearBtn">clear</button>
+      <button class="lgr-btn" id="lgrSelectBtn">select</button>
+      <button class="lgr-btn" id="lgrNewWindowBtn">new window</button>
+      <span class="lgr-count" id="lgrCount">0 / 0 lines</span>
+    </div>
+
+    <!-- load screen -->
+    <div class="lgr-load" id="lgrLoad">
+      <div class="lgr-drop" id="lgrDropZone">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4;margin-bottom:10px">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="12" y2="12"/>
+          <line x1="15" y1="15" x2="12" y2="12"/>
+        </svg>
+        <p><strong>Drop a log file here</strong><br>or click to browse</p>
+        <div class="lgr-fmts">
+          <span class="lgr-fmt">.log</span><span class="lgr-fmt">.txt</span>
+          <span class="lgr-fmt">.out</span><span class="lgr-fmt">.err</span>
+          <span class="lgr-fmt">.json</span><span class="lgr-fmt">.jsonl</span>
+          <span class="lgr-fmt">.csv</span>
+        </div>
+        <div class="lgr-drop-err" id="lgrDropErr"></div>
+      </div>
+      <div class="lgr-paste-wrap">
+        <label>or paste log text</label>
+        <textarea id="lgrPaste" placeholder="Paste log lines here…"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="lgr-btn primary" id="lgrPasteLoad">load</button>
+        </div>
+      </div>
+      <input type="file" id="lgrFile" accept=".log,.txt,.out,.err,.json,.jsonl,.ndjson,.csv" style="display:none">
+    </div>
+
+    <!-- workspace -->
+    <div class="lgr-workspace" id="lgrWorkspace" style="display:none">
+
+      <!-- focus + remove bar -->
+      <div class="lgr-bar">
+        <div class="lgr-col">
+          <div class="lgr-col-hd">
+            <span class="lgr-lbl focus">Focus</span>
+            <span class="lgr-hint">center line context</span>
+          </div>
+          <div class="lgr-focus-row">
+            <div class="lgr-field"><label>center</label><input type="number" id="lgrFocusCenter" value="0" min="0"></div>
+            <span class="lgr-sep">±</span>
+            <div class="lgr-field"><label>before</label><input type="number" id="lgrFocusBefore" value="0" min="0"></div>
+            <div class="lgr-field"><label>after</label><input type="number" id="lgrFocusAfter" value="0" min="0"></div>
+            <div class="lgr-focus-acts">
+              <button class="lgr-pill-btn active" id="lgrFocusToggle">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                on
+              </button>
+              <button class="lgr-pill-btn del" id="lgrFocusReset">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                reset
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="lgr-sep-v"></div>
+        <div class="lgr-col">
+          <div class="lgr-col-hd">
+            <span class="lgr-lbl remove">Remove</span>
+            <span class="lgr-hint">hide matching</span>
+          </div>
+          <div class="lgr-cond-list" id="lgrRemoveList"></div>
+          <button class="lgr-add-btn remove" id="lgrAddRemove">+ add</button>
+        </div>
+      </div>
+
+      <!-- grep + math bar -->
+      <div class="lgr-bar">
+        <div class="lgr-col">
+          <div class="lgr-col-hd">
+            <span class="lgr-lbl grep">Grep</span>
+            <span class="lgr-hint">show only matching</span>
+          </div>
+          <div class="lgr-cond-list" id="lgrGrepList"></div>
+          <button class="lgr-add-btn grep" id="lgrAddGrep">+ add</button>
+        </div>
+        <div class="lgr-sep-v"></div>
+        <div class="lgr-col">
+          <div class="lgr-col-hd">
+            <span class="lgr-lbl math">Math</span>
+            <span class="lgr-hint">filter by number value</span>
+          </div>
+          <div class="lgr-cond-list" id="lgrMathList"></div>
+          <button class="lgr-add-btn math" id="lgrAddMath">+ add</button>
+        </div>
+      </div>
+
+      <!-- log output -->
+      <div class="lgr-display" id="lgrDisplay"></div>
+
+    </div><!-- /lgr-workspace -->
+  </div><!-- /view loger -->
+
+</div><!-- /app-wrap -->
 
 <!-- Confirm modal -->
 <div class="overlay" id="confirmOverlay" style="display:none">
