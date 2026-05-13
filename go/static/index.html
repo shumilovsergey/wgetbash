@@ -42,7 +42,7 @@
     <div class="nav-tabs">
       <button class="tab active" data-tab="wgetbash">wgetbash</button>
       <button class="tab" data-tab="loger">loger</button>
-      <button class="tab" data-tab="text3">text 3</button>
+      <button class="tab" data-tab="text3">AI cleaner</button>
     </div>
     <div class="profile-area">
       <button class="profile-btn" id="userTrig" title="menu">
@@ -236,6 +236,29 @@
 
     </div><!-- /lgr-workspace -->
   </div><!-- /view loger -->
+
+  <!-- ════ CLEANER VIEW ════ -->
+  <div class="view" data-view="text3" id="viewCleaner">
+    <div class="clnr-wrap">
+      <div class="clnr-bar">
+        <span class="clnr-stats" id="clnrStats">paste text to clean</span>
+        <div class="clnr-acts">
+          <button class="clnr-btn" id="clnrClear">clear</button>
+          <button class="clnr-btn primary" id="clnrCopy">copy</button>
+        </div>
+      </div>
+      <div class="clnr-panels">
+        <div class="clnr-panel">
+          <div class="clnr-panel-hd">input</div>
+          <textarea class="clnr-ta" id="clnrInput" placeholder="paste text here…" spellcheck="false"></textarea>
+        </div>
+        <div class="clnr-panel">
+          <div class="clnr-panel-hd">output</div>
+          <textarea class="clnr-ta" id="clnrOutput" placeholder="cleaned text will appear here…" readonly spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view cleaner -->
 
 </div><!-- /app-wrap -->
 
