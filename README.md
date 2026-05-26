@@ -22,25 +22,25 @@ Login → OAuth callback → server issues signed JWT → HttpOnly cookie
 
 Requires Docker Desktop.
 
-First time — create `go/.env` from the example and fill in your values:
+First time — create `.env` from the example and fill in your values:
 ```bash
-cp go/.env.example go/.env
+cp .env.example .env
 ```
 
 Then start:
 ```bash
-docker-compose -f go/docker-compose.dev.yml up --build
+docker compose -f dev-compose.yml up --build
 ```
 
 Open http://localhost:8000
 
-Air watches for changes in `go/*.go` and rebuilds automatically.
+Air watches for changes in `build/*.go` and `build/static/` and rebuilds automatically.
 
 ## Prod — build Linux binary (Intel x86-64)
 
 ```bash
-docker build --platform linux/amd64 --target binary --output go/bin/ -f go/Dockerfile .
+docker compose -f prod-compose.yml up --build
 ```
 
-Outputs `go/bin/wgetbash` — a static binary ready to copy to the server.
+Outputs `bin/wgetbash` — a static binary ready to copy to the server.
 

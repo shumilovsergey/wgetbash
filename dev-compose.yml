@@ -1,0 +1,15 @@
+services:
+  wgetbash:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./build:/app
+      - ./data:/data
+      - go-cache:/root/go/pkg/mod
+
+volumes:
+  go-cache:

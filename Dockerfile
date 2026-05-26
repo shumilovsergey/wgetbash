@@ -1,0 +1,14 @@
+# ── dev: hot-reload with Air ─────────────────────────────────────────────
+FROM golang:1.23-bookworm AS dev
+WORKDIR /app
+RUN go install github.com/air-verse/air@v1.52.3
+ENV GONOSUMDB=* GOFLAGS=-mod=mod
+EXPOSE 8000
+CMD ["air"]
+
+# ── builder: compiles linux/amd64 static binary ───────────────────────────
+FROM golang:1.23-alpine AS builder
+WORKDIR /app
+COPY build/ .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /wgetbash .
