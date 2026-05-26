@@ -1,14 +1,13 @@
 // ── STATE ──
 let groups    = [];
 let selGrp    = null;
-let sbShrunk  = false;
 let confirmCb = null;
 let userHash  = '';
 
 // ── UTILS ──
 const $      = id => document.getElementById(id);
 const esc    = s  => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const isMob  = () => window.innerWidth <= 767;
+const isMob  = () => window.innerWidth <= 1024;
 function grp(id)      { return groups.find(g => g.id === id); }
 function sc(gid, sid) { return grp(gid)?.scripts?.find(s => s.id === sid); }
 function init(name)   { return name.trim().charAt(0).toUpperCase(); }
@@ -80,13 +79,22 @@ async function loadScripts(gid) {
 function render() {
   renderGroups();
   renderScripts();
-  renderPanelHead();
+  renderHead();
 }
 
 function renderGroups() {
   const list = $('grpList');
   list.innerHTML = '';
-  groups.forEach(g => {
+  const q = $('sbSearch').value.trim().toLowerCase();
+
+  const visible = q
+    ? groups.filter(g =>
+        g.name.toLowerCase().includes(q) ||
+        (g.scripts || []).some(s => s.name.toLowerCase().includes(q))
+      )
+    : groups;
+
+  visible.forEach(g => {
     const d = document.createElement('div');
     d.className = 'grp-row' + (g.id === selGrp ? ' active' : '');
     d.innerHTML = `<div class="grp-init">${init(g.name)}</div><span class="grp-lbl">${esc(g.name)}</span>`;
@@ -96,263 +104,163 @@ function renderGroups() {
 
   const addRow = document.createElement('div');
   addRow.className = 'sb-add';
-  addRow.title = 'add group';
+  addRow.title     = 'add chapter';
   addRow.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
   addRow.addEventListener('click', addGroup);
   list.appendChild(addRow);
 }
 
 function renderScripts() {
-  const q = $('sbSearch').value.trim().toLowerCase();
-  if (q) { renderSearchResults(q); return; }
-
   const list = $('scList');
-  const savedScroll = list.scrollTop;
-  const savedWinScroll = window.scrollY;
   list.innerHTML = '';
   const g = grp(selGrp);
-  if (!g) return;
-
-  g.scripts.forEach(s => {
-    const item = document.createElement('div');
-    item.className  = 'sc-item';
-    item.dataset.id = s.id;
-
-    const row = document.createElement('div');
-    row.className = 'sc-row';
-
-    const expBtn = document.createElement('button');
-    expBtn.className = 'ib sm';
-    expBtn.title     = s.exp ? 'collapse' : 'expand';
-    expBtn.innerHTML = s.exp ? ICO.chevU : ICO.chevD;
-    expBtn.addEventListener('click', () => toggleScript(s.id));
-
-    let nameEl;
-    if (s.edit) {
-      nameEl = document.createElement('input');
-      nameEl.className    = 'sc-name-inp';
-      nameEl.value        = s.name;
-      nameEl.autocomplete = 'off';
-      nameEl.addEventListener('input',   e => s._name = e.target.value);
-      nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') saveScript(s.id); });
-    } else {
-      nameEl = document.createElement('span');
-      nameEl.className   = 'sc-name';
-      nameEl.textContent = s.name || '(unnamed)';
-    }
-
-    const wb = document.createElement('button');
-    wb.className = 'wget-btn';
-    wb.textContent = 'wget';
-    wb.title = 'copy wget command';
-    wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
-
-    row.appendChild(expBtn);
-    row.appendChild(nameEl);
-
-    if (s.exp) {
-      const eb = document.createElement('button');
-      eb.className = 'ib sm amber';
-      eb.title     = s.edit ? 'save' : 'edit';
-      eb.innerHTML = s.edit ? ICO.check : ICO.pencil;
-      eb.addEventListener('click', () => s.edit ? saveScript(s.id) : startEdit(s.id));
-      row.appendChild(eb);
-    } else {
-      const cb = document.createElement('button');
-      cb.className = 'ib sm';
-      cb.title     = 'copy script';
-      cb.innerHTML = ICO.clip;
-      cb.addEventListener('click', e => { e.stopPropagation(); copyContent(s); });
-      row.appendChild(cb);
-    }
-
-    row.appendChild(wb);
-    item.appendChild(row);
-
-    if (s.exp) {
-      const cont = document.createElement('div');
-      cont.className = 'sc-content';
-
-      const ta = document.createElement('textarea');
-      ta.className    = 'sc-ta';
-      ta.value        = s.content;
-      ta.spellcheck   = false;
-
-      const hl = document.createElement('div');
-      hl.className = 'sc-hl';
-      hl.setAttribute('aria-hidden', 'true');
-      hl.innerHTML = highlightBash(s.content);
-      ta.addEventListener('scroll', () => { hl.style.transform = `translateY(-${ta.scrollTop}px)`; });
-
-      const taWrap = document.createElement('div');
-      taWrap.className = 'ta-wrap';
-      taWrap.appendChild(hl);
-      taWrap.appendChild(ta);
-
-      if (!s.edit) {
-        ta.readOnly = true;
-      } else {
-        ta.addEventListener('input', e => {
-          s._content = e.target.value;
-          hl.innerHTML = highlightBash(e.target.value);
-          autoResize(ta);
-        });
-        function handleBackspaceLine(e) {
-          const start = ta.selectionStart;
-          const end   = ta.selectionEnd;
-          if (start !== end || start === 0) return;
-          if (ta.value[start - 1] !== '\n') return;
-          e.preventDefault();
-          ta.value = ta.value.slice(0, start - 1) + ta.value.slice(start);
-          ta.selectionStart = ta.selectionEnd = start - 1;
-          s._content = ta.value;
-          hl.innerHTML = highlightBash(ta.value);
-          autoResize(ta);
-        }
-        ta.addEventListener('keydown', e => { if (e.key === 'Backspace') handleBackspaceLine(e); });
-        ta.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e); });
-      }
-
-      const foot = document.createElement('div');
-      foot.className = 'sc-foot';
-      const delBtn = document.createElement('button');
-      delBtn.className = 'ib sm danger';
-      delBtn.title     = 'delete script';
-      delBtn.innerHTML = ICO.x;
-      delBtn.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
-      foot.appendChild(delBtn);
-
-      cont.appendChild(taWrap);
-      cont.appendChild(foot);
-      item.appendChild(cont);
-    }
-
-    list.appendChild(item);
-  });
 
   if (g) {
+    const q = $('sbSearch').value.trim().toLowerCase();
+    const scripts = q ? g.scripts.filter(s => s.name.toLowerCase().includes(q)) : g.scripts;
+
+    scripts.forEach(s => {
+      const item = document.createElement('div');
+      item.className  = 'sc-item';
+      item.dataset.id = s.id;
+
+      const row = document.createElement('div');
+      row.className = 'sc-row';
+
+      const expBtn = document.createElement('button');
+      expBtn.className = 'ib sm';
+      expBtn.title     = s.exp ? 'collapse' : 'expand';
+      expBtn.innerHTML = s.exp ? ICO.chevU : ICO.chevD;
+      expBtn.addEventListener('click', () => toggleScript(s.id));
+
+      let nameEl;
+      if (s.edit) {
+        nameEl = document.createElement('input');
+        nameEl.className    = 'sc-name-inp';
+        nameEl.value        = s._name !== undefined ? s._name : s.name;
+        nameEl.autocomplete = 'off';
+        nameEl.addEventListener('input',   e => { s._name = e.target.value; });
+        nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') saveScript(s.id); });
+      } else {
+        nameEl = document.createElement('span');
+        nameEl.className   = 'sc-name';
+        nameEl.textContent = s.name || '(unnamed)';
+      }
+
+      const actBtn = document.createElement('button');
+      if (!s.exp) {
+        actBtn.className = 'ib sm';
+        actBtn.title     = 'copy script';
+        actBtn.innerHTML = ICO.clip;
+        actBtn.addEventListener('click', e => { e.stopPropagation(); copyContent(s); });
+      } else if (s.edit) {
+        actBtn.className = 'ib sm amber';
+        actBtn.title     = 'save';
+        actBtn.innerHTML = ICO.check;
+        actBtn.addEventListener('click', () => saveScript(s.id));
+      } else {
+        actBtn.className = 'ib sm amber';
+        actBtn.title     = 'edit';
+        actBtn.innerHTML = ICO.pencil;
+        actBtn.addEventListener('click', () => startEdit(s.id));
+      }
+
+      const wb = document.createElement('button');
+      wb.className   = 'wget-btn';
+      wb.textContent = 'wget';
+      wb.title       = 'copy wget command';
+      wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
+
+      row.appendChild(expBtn);
+      row.appendChild(nameEl);
+      row.appendChild(actBtn);
+      row.appendChild(wb);
+      item.appendChild(row);
+
+      if (s.exp) {
+        const cont = document.createElement('div');
+        cont.className = 'sc-content';
+
+        const taWrap = document.createElement('div');
+        taWrap.className = 'ta-wrap';
+
+        const hl = document.createElement('div');
+        hl.className = 'sc-hl';
+        hl.setAttribute('aria-hidden', 'true');
+        hl.innerHTML = highlightBash(s.content || '');
+
+        const ta = document.createElement('textarea');
+        ta.className  = 'sc-ta';
+        ta.value      = s.content || '';
+        ta.spellcheck = false;
+        ta.readOnly   = !s.edit;
+
+        if (s.edit) {
+          ta.addEventListener('input', e => {
+            s._content = e.target.value;
+            hl.innerHTML = highlightBash(e.target.value);
+            autoResize(ta);
+          });
+          ta.addEventListener('keydown', e => {
+            if (e.key === 'Backspace') handleBackspaceLine(e, ta, s, hl);
+          });
+          ta.addEventListener('beforeinput', e => {
+            if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e, ta, s, hl);
+          });
+        }
+
+        taWrap.appendChild(hl);
+        taWrap.appendChild(ta);
+
+        const foot = document.createElement('div');
+        foot.className = 'sc-foot';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'ib sm danger';
+        delBtn.title     = 'delete script';
+        delBtn.innerHTML = ICO.x;
+        delBtn.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
+        foot.appendChild(delBtn);
+
+        cont.appendChild(taWrap);
+        cont.appendChild(foot);
+        item.appendChild(cont);
+
+        requestAnimationFrame(() => autoResize(ta));
+      }
+
+      list.appendChild(item);
+    });
+  }
+
+  if (selGrp) {
     const addRow = document.createElement('div');
     addRow.className = 'rp-add';
-    addRow.title = 'add script';
+    addRow.title     = 'add script';
     addRow.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
     addRow.addEventListener('click', addScript);
     list.appendChild(addRow);
   }
-
-  list.querySelectorAll('.sc-ta').forEach(ta => autoResize(ta));
-  list.scrollTop = savedScroll;
-  window.scrollTo(0, savedWinScroll);
-  requestAnimationFrame(() => {
-    list.scrollTop = savedScroll;
-    window.scrollTo(0, savedWinScroll);
-  });
 }
 
-function renderSearchResults(q) {
-  const list = $('scList');
-  list.innerHTML = '';
-  let count = 0;
-
-  groups.forEach(g => {
-    (g.scripts || [])
-      .filter(s => s.name.toLowerCase().includes(q))
-      .forEach(s => {
-        count++;
-        const item = document.createElement('div');
-        item.className = 'sc-item';
-
-        const row = document.createElement('div');
-        row.className = 'sc-row';
-        row.style.cursor = 'pointer';
-
-        const expBtn = document.createElement('button');
-        expBtn.className = 'ib sm';
-        expBtn.innerHTML = s.exp ? ICO.chevU : ICO.chevD;
-        expBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          s.exp = !s.exp;
-          renderScripts();
-        });
-
-        const badge = document.createElement('div');
-        badge.className   = 'grp-init';
-        badge.textContent = init(g.name);
-        badge.title       = g.name;
-
-        const nameEl = document.createElement('span');
-        nameEl.className   = 'sc-name';
-        nameEl.textContent = s.name || '(unnamed)';
-
-        row.appendChild(expBtn);
-        row.appendChild(badge);
-        row.appendChild(nameEl);
-
-        row.addEventListener('click', () => {
-          $('sbSearch').value = '';
-          selectGrp(g.id);
-        });
-
-        item.appendChild(row);
-
-        if (s.exp) {
-          const cont = document.createElement('div');
-          cont.className = 'sc-content';
-          const ta = document.createElement('textarea');
-          ta.className  = 'sc-ta';
-          ta.value      = s.content || '';
-          ta.readOnly   = true;
-          ta.spellcheck = false;
-
-          const hl = document.createElement('div');
-          hl.className = 'sc-hl';
-          hl.setAttribute('aria-hidden', 'true');
-          hl.innerHTML = highlightBash(s.content || '');
-          ta.addEventListener('scroll', () => { hl.style.transform = `translateY(-${ta.scrollTop}px)`; });
-
-          const taWrap = document.createElement('div');
-          taWrap.className = 'ta-wrap';
-          taWrap.appendChild(hl);
-          taWrap.appendChild(ta);
-
-          cont.appendChild(taWrap);
-          item.appendChild(cont);
-        }
-
-        const foot = document.createElement('div');
-        foot.className = 'sc-foot';
-        foot.style.padding = '0 14px 10px';
-        const wb = document.createElement('button');
-        wb.className   = 'wget-btn';
-        wb.textContent = 'wget';
-        wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
-        foot.appendChild(wb);
-        item.appendChild(foot);
-
-        list.appendChild(item);
-      });
-  });
-
-  if (count === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'sc-row';
-    empty.style.cssText = 'justify-content:center;color:var(--txt3);font-size:12px;';
-    empty.textContent   = 'no scripts found';
-    list.appendChild(empty);
-  }
+function handleBackspaceLine(e, ta, s, hl) {
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  if (start !== end || start === 0) return;
+  if (ta.value[start - 1] !== '\n') return;
+  e.preventDefault();
+  ta.value = ta.value.slice(0, start - 1) + ta.value.slice(start);
+  ta.selectionStart = ta.selectionEnd = start - 1;
+  s._content = ta.value;
+  hl.innerHTML = highlightBash(ta.value);
+  autoResize(ta);
 }
 
-function renderPanelHead() {
-  const q = $('sbSearch').value.trim();
+function renderHead() {
   const g = grp(selGrp);
-  if (q) {
-    $('rpTitle').textContent          = '';
-    $('grpMenuWrap').style.visibility = 'hidden';
-  } else {
-    $('rpTitle').textContent          = g ? g.name : '—';
-    $('grpMenuWrap').style.visibility = g ? 'visible' : 'hidden';
-    const nd = $('grpNameDisplay');
-    if (nd && g) nd.textContent = g.name;
-  }
+  $('rpTitle').textContent          = g ? g.name : '—';
+  $('grpMenuWrap').style.visibility = g ? 'visible' : 'hidden';
+  const nd = $('grpNameDisplay');
+  if (nd && g) nd.textContent = g.name;
 }
 
 // ── ACTIONS ──
@@ -378,8 +286,10 @@ function startEdit(sid) {
   if (!s) return;
   s.edit = true; s._name = s.name; s._content = s.content;
   renderScripts();
-  const inp = document.querySelector(`.sc-item[data-id="${sid}"] .sc-name-inp`);
-  if (inp) inp.focus();
+  requestAnimationFrame(() => {
+    const inp = document.querySelector(`.sc-item[data-id="${sid}"] .sc-name-inp`);
+    if (inp) inp.focus();
+  });
 }
 
 async function saveScript(sid) {
@@ -423,14 +333,14 @@ function copyWget(s) {
   toast('wget command copied!');
 }
 
-function addGroup() {
+async function addGroup() {
   const list = $('grpList');
   if (list.querySelector('.new-grp-inp')) return;
   const row = document.createElement('div');
   row.className = 'new-grp-row';
   const inp = document.createElement('input');
   inp.className    = 'new-grp-inp';
-  inp.placeholder  = 'group name';
+  inp.placeholder  = 'chapter name';
   inp.autocomplete = 'off';
   let committed = false;
   const commit = async () => {
@@ -445,13 +355,17 @@ function addGroup() {
       renderGroups();
       selectGrp(g.id);
     } catch {
-      toast('failed to create group');
+      toast('failed to create chapter');
     }
   };
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { committed = true; row.remove(); } });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') { committed = true; row.remove(); }
+  });
   inp.addEventListener('blur', commit);
   row.appendChild(inp);
-  list.appendChild(row);
+  const addBtn = list.querySelector('.sb-add');
+  list.insertBefore(row, addBtn);
   inp.focus();
 }
 
@@ -462,8 +376,10 @@ async function addScript() {
     const s = await api('POST', `/api/groups/${selGrp}/scripts`, { name: '', content: '' });
     g.scripts.push({ ...s, exp: true, edit: true, _name: '', _content: '' });
     renderScripts();
-    const inp = document.querySelector(`.sc-item[data-id="${s.id}"] .sc-name-inp`);
-    if (inp) inp.focus();
+    requestAnimationFrame(() => {
+      const inp = document.querySelector(`.sc-item[data-id="${s.id}"] .sc-name-inp`);
+      if (inp) inp.focus();
+    });
   } catch {
     toast('failed to create script');
   }
@@ -482,8 +398,8 @@ function enterGrpEditMode() {
 
   const btn = $('grpRenameBtn');
   btn.innerHTML = ICO.check;
-  btn.title = 'save';
-  btn.onclick = e => { e.stopPropagation(); saveGroupName(); };
+  btn.title     = 'save';
+  btn.onclick   = e => { e.stopPropagation(); saveGroupName(); };
 
   row.replaceChild(inp, $('grpNameDisplay'));
   inp.focus();
@@ -499,17 +415,17 @@ function exitGrpEditMode() {
   if (!inp) return;
 
   const span = document.createElement('span');
-  span.className   = 'drop-lbl';
-  span.id          = 'grpNameDisplay';
-  span.textContent = grp(selGrp)?.name ?? '';
+  span.className    = 'drop-lbl';
+  span.id           = 'grpNameDisplay';
+  span.textContent  = grp(selGrp)?.name ?? '';
   span.style.cursor = 'pointer';
   span.addEventListener('click', e => { e.stopPropagation(); enterGrpEditMode(); });
   row.replaceChild(span, inp);
 
   const btn = $('grpRenameBtn');
   btn.innerHTML = ICO.pencil;
-  btn.title = 'edit name';
-  btn.onclick = e => { e.stopPropagation(); enterGrpEditMode(); };
+  btn.title     = 'edit name';
+  btn.onclick   = e => { e.stopPropagation(); enterGrpEditMode(); };
 }
 
 async function saveGroupName() {
@@ -521,9 +437,9 @@ async function saveGroupName() {
     await api('PUT', `/api/groups/${selGrp}`, { name: val });
     g.name = val;
     renderGroups();
-    renderPanelHead();
+    renderHead();
   } catch {
-    toast('failed to rename group');
+    toast('failed to rename chapter');
   }
   $('grpDrop').style.display = 'none';
 }
@@ -537,15 +453,15 @@ function enterUserEditMode() {
   const currentName = $('userLbl').textContent;
 
   const inp = document.createElement('input');
-  inp.className   = 'drop-inp';
-  inp.id          = 'userNameInp';
-  inp.value       = currentName;
-  inp.placeholder = 'new name';
+  inp.className    = 'drop-inp';
+  inp.id           = 'userNameInp';
+  inp.value        = currentName;
+  inp.placeholder  = 'new name';
   inp.autocomplete = 'off';
 
   const btn = $('userEditBtn');
   btn.innerHTML = `<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4 7.5L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  btn.title = 'save';
+  btn.title   = 'save';
   btn.onclick = e => { e.stopPropagation(); commitUserName(); };
 
   row.replaceChild(inp, $('userNameDisplay'));
@@ -557,16 +473,16 @@ function exitUserEditMode() {
   const row = $('userNameRow');
   const inp = $('userNameInp');
   const span = document.createElement('span');
-  span.className = 'drop-lbl';
-  span.id        = 'userNameDisplay';
-  span.textContent = $('userLbl').textContent;
+  span.className    = 'drop-lbl';
+  span.id           = 'userNameDisplay';
+  span.textContent  = $('userLbl').textContent;
   span.style.cursor = 'pointer';
   span.addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
   row.replaceChild(span, inp);
 
   const btn = $('userEditBtn');
   btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-  btn.title = 'edit name';
+  btn.title   = 'edit name';
   btn.onclick = e => { e.stopPropagation(); enterUserEditMode(); };
 }
 
@@ -581,14 +497,6 @@ async function commitUserName() {
   } catch {
     toast('failed to save name');
   }
-}
-
-function toggleSb() {
-  sbShrunk = !sbShrunk;
-  $('sb').classList.toggle('shrunk', sbShrunk);
-  $('sbArrow').innerHTML = sbShrunk
-    ? '<path d="M2 2L6 6L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
-    : '<path d="M6 2L2 6L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
 }
 
 function toggleDrop(id) {
@@ -628,7 +536,6 @@ function toast(msg) {
 }
 
 // ── EVENT WIRING ──
-$('sbToggle').addEventListener('click', toggleSb);
 $('sbSearch').addEventListener('input', render);
 $('backBtn').addEventListener('click', () => { document.body.className = 'vg'; $('backBtn').style.display = 'none'; });
 
@@ -645,7 +552,7 @@ $('userNameDisplay').style.cursor = 'pointer';
 $('grpRenameBtn').addEventListener('click',  e => { e.stopPropagation(); enterGrpEditMode(); });
 $('grpNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterGrpEditMode(); });
 $('grpNameDisplay').style.cursor = 'pointer';
-$('delGrpRow').addEventListener('click',   e => {
+$('delGrpRow').addEventListener('click', e => {
   e.stopPropagation();
   $('grpDrop').style.display = 'none';
   confirmDel(async () => {
@@ -656,7 +563,7 @@ $('delGrpRow').addEventListener('click',   e => {
       if (selGrp) await loadScripts(selGrp);
       render();
     } catch {
-      toast('failed to delete group');
+      toast('failed to delete chapter');
     }
   });
 });
