@@ -1,14 +1,16 @@
+# ------ target
+CLAUDE.md
 .env
 .claude
-.db
-.DS_Store
 
-# systemd service files with real env vars — keep only .example templates
+# ------ mask
+*.db
+*.DS_Store
 *.service
-!*.service.example
 
+# ------ dir
 data/
-bin/
 build/tmp/
 
-CLAUDE.md
+# ------ ex
+!*.service.example
