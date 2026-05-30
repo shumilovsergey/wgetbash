@@ -10,5 +10,6 @@ CMD ["air"]
 FROM golang:1.23-alpine AS builder
 WORKDIR /app
 COPY build/ .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /wgetbash .
+RUN BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w -X main.buildTime=${BUILD_TIME}" -o /wgetbash .
