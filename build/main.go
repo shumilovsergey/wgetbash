@@ -60,5 +60,5 @@ func main() {
 	}
 
 	log.Printf("wgetbash listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	// log.Fatal(http.ListenAndServe(":"+port, mux))
 }
