@@ -112,6 +112,7 @@ function renderGroups() {
 
 function renderScripts() {
   const list = $('scList');
+  const prevScroll = list.scrollTop;
   list.innerHTML = '';
   const g = grp(selGrp);
 
@@ -240,6 +241,11 @@ function renderScripts() {
     addRow.addEventListener('click', addScript);
     list.appendChild(addRow);
   }
+
+  // Restore scroll position so re-rendering (edit/save/toggle) doesn't jump the
+  // list to the top. Queued after the per-textarea autoResize rAFs (line ~228)
+  // so the content is at full height before we set scrollTop, otherwise it clamps.
+  requestAnimationFrame(() => { list.scrollTop = prevScroll; });
 }
 
 function handleBackspaceLine(e, ta, s, hl) {
@@ -288,7 +294,7 @@ function startEdit(sid) {
   renderScripts();
   requestAnimationFrame(() => {
     const inp = document.querySelector(`.sc-item[data-id="${sid}"] .sc-name-inp`);
-    if (inp) inp.focus();
+    if (inp) inp.focus({ preventScroll: true });
   });
 }
 
@@ -571,8 +577,32 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.dd') && !e.target.closest('.profile-area')) closeAllDrops();
 });
 
+// ── VIEW ROUTING ──
+const VIEWS = ['wgetbash', 'loger'];
+
+function viewFromUrl() {
+  const v = new URLSearchParams(location.search).get('view');
+  return VIEWS.includes(v) ? v : null;
+}
+
+function setView(name, updateUrl = true) {
+  if (!VIEWS.includes(name)) name = 'wgetbash';
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.view[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === name));
+  if (updateUrl) {
+    const url = new URL(location.href);
+    url.searchParams.set('view', name);
+    history.replaceState(null, '', url.pathname + url.search);
+  }
+}
+
 // ── AUTH ──
 $('doLogin').addEventListener('click', () => {
+  // The OAuth redirect lands back on "/", dropping any ?view= — stash it so we
+  // can restore the requested view after login completes.
+  const v = viewFromUrl();
+  if (v) localStorage.setItem('pendingView', v);
+  else   localStorage.removeItem('pendingView');
   window.location.href = '/auth/login';
 });
 
@@ -590,6 +620,11 @@ async function initAuth() {
     if (!isMob()) $('backBtn').style.display = 'none';
     else document.body.className = 'vg';
     await loadGroups();
+    // Activate requested view: ?view= param, else the one saved before login, else default.
+    const fromUrl = viewFromUrl();
+    const pending = localStorage.getItem('pendingView');
+    localStorage.removeItem('pendingView');
+    setView(fromUrl || pending || 'wgetbash', Boolean(fromUrl || pending));
   } catch {
     $('loginWrap').style.display = 'flex';
     $('appWrap').style.display   = 'none';
@@ -601,24 +636,11 @@ $('logoutRow').addEventListener('click', async () => {
   window.location.reload();
 });
 
-// ── LOGIN CHEVRON ──
-$('loginChev').addEventListener('click', () => {
-  const open = $('loginChev').classList.toggle('open');
-  $('loginPanel').classList.toggle('open', open);
-});
-
 initAuth();
 
 // ── TAB SWITCHING ──────────────────────────────────────────────────────────
 document.querySelectorAll('.tab[data-tab]').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const target = tab.dataset.tab;
-    document.querySelectorAll('.view[data-view]').forEach(v => {
-      v.classList.toggle('active', v.dataset.view === target);
-    });
-  });
+  tab.addEventListener('click', () => setView(tab.dataset.tab));
 });
 
 // ── LOGER ─────────────────────────────────────────────────────────────────
@@ -978,5 +1000,9 @@ document.querySelectorAll('.tab[data-tab]').forEach(tab => {
     const r = document.createRange(); r.selectNodeContents(lgrDisplay);
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
   });
-  lgrNewWinBtn.addEventListener('click', () => window.open(window.location.href, '_blank'));
+  lgrNewWinBtn.addEventListener('click', () => {
+    const url = new URL(location.href);
+    url.searchParams.set('view', 'loger');
+    window.open(url.toString(), '_blank');
+  });
 })();
