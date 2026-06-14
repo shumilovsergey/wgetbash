@@ -117,19 +117,29 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	var userData map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&userData); err != nil {
+	// auth service returns { ok, user: { id, name, email, ... }, method }
+	var payload struct {
+		User   map[string]any `json:"user"`
+		Method string         `json:"method"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || payload.User == nil {
 		http.Error(w, "invalid response", http.StatusInternalServerError)
 		return
 	}
 
-	authID := fmt.Sprintf("%v", userData["id"])
-	username := extractUsername(userData)
+	authID := fmt.Sprintf("%v", payload.User["id"])
+	username := extractUsername(payload.User)
+	provider := payload.Method
 
 	// insert user if new (ignore conflict)
 	db.Exec(
-		`INSERT INTO users (auth_id, username, user_hash) VALUES (?, ?, ?) ON CONFLICT(auth_id) DO NOTHING`,
-		authID, username, randToken(),
+		`INSERT INTO users (auth_id, username, user_hash, provider) VALUES (?, ?, ?, ?) ON CONFLICT(auth_id) DO NOTHING`,
+		authID, username, randToken(), provider,
+	)
+	// keep username/provider fresh from the auth service on each login
+	db.Exec(
+		`UPDATE users SET username = ?, provider = ? WHERE auth_id = ?`,
+		username, provider, authID,
 	)
 	// ensure user_hash for existing users that have none
 	db.Exec(
@@ -166,12 +176,12 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var username, userHash string
-	if err := db.QueryRow(`SELECT username, user_hash FROM users WHERE id = ?`, claims.UserID).Scan(&username, &userHash); err != nil {
+	var username, userHash, authID, provider string
+	if err := db.QueryRow(`SELECT username, user_hash, auth_id, provider FROM users WHERE id = ?`, claims.UserID).Scan(&username, &userHash, &authID, &provider); err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	writeJSON(w, map[string]any{"id": claims.UserID, "username": username, "user_hash": userHash})
+	writeJSON(w, map[string]any{"id": claims.UserID, "username": username, "user_hash": userHash, "uid": authID, "provider": provider})
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -183,6 +193,9 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func extractUsername(data map[string]any) string {
 	if v, _ := data["username"].(string); v != "" {
+		return v
+	}
+	if v, _ := data["name"].(string); v != "" {
 		return v
 	}
 	first, _ := data["first_name"].(string)

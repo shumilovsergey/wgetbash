@@ -1,46 +1,47 @@
-# wgetbash
-🧩
+# wgetbash 🧩
 
-## Security
+Храните свои bash-скрипты в облаке и запускайте их на любом сервере одной командой:
 
-Session cookie is `HttpOnly` — JS cannot read it. It's a signed JWT (HMAC-SHA256):
+## Зачем это нужно?
 
-```
-Browser → sends cookie automatically (never readable by JS)
-Server  → validates JWT signature with SECRET_KEY
-        → rejects any tampered token with 401
-```
+Не всегда есть смысл поднимать Ansible:
 
-```
-Login → OAuth callback → server issues signed JWT → HttpOnly cookie
-                                    ↓
-                         user_id inside JWT is tamper-proof:
-                         changing it breaks the signature → 401
-```
+- **Инфраструктура простая.** Пара серверов и десяток команд — Ansible здесь избыточен.
+- **Сервер новый.** Инфраструктура ещё свежая, Ansible на ней пока не настроен, а сделать что-то нужно уже сейчас.
+- **Просто хочется хранить скрипты.** Все полезные скрипты в одном месте, под рукой, с быстрым запуском.
 
-## Dev (macOS ARM)
+wgetbash закрывает именно эту нишу: пишете скрипт в браузере → получаете ссылку → запускаете одной командой `wget ... | bash` на любом сервере. 
 
-Requires Docker Desktop.
+## Как это работает
 
-First time — create `.env` from the example and fill in your values:
-```bash
-cp .env.example .env
-```
+1. Пишете скрипт прямо в браузере. `#!/bin/bash` добавлять не нужно — он подставляется автоматически.
+2. Нажимаете **wget** — в буфер копируется готовая команда. 
+3. Вставляете её на сервере и запускаете.
 
-Then start:
-```bash
-docker compose -f dev-compose.yml up --build
-```
+## Фичи и особенности:
 
-Open http://localhost:8000
+- Скрипт выполняется в памяти через пайп — на сервере ничего не сохраняется, чистить за собой не нужно.
+- Есть встроенная обработка ошибок. При первой же ошибке выполнение останавливается, показывается номер строки и красное `[ERROR]` с кодом выхода. Если всё прошло успешно — зелёное `[OK]`.
+- Для офлайн инфраструктуры есть возможность скопировать скрипт в буфер обмена. 
 
-Air watches for changes in `build/*.go` and `build/static/` and rebuilds automatically.
 
-## Prod — build Linux binary (Intel x86-64)
+## Безопасность
 
-```bash
-docker compose -f prod-compose.yml up --build
-```
+Ссылка на скрипт вида `/<user-hash>/<script-hash>` формально публична, но без входа в аккаунт найти чужой скрипт практически нереально. 
 
-Outputs `bin/wgetbash` — a static binary ready to copy to the server.
+> Всё равно лучше не храните здесь чувствительные данные!
+
+---
+
+# loger
+
+Это помощник для разбора логов. Чтоб не вспоминать в момент инцидента shell команды и их флаги. 
+Работает на стороне клиента, так что ваши логи остаются у вас и никуда не утекают. 
+
+- **Focus** — показать строку и её контекст (N строк до и после).
+- **Remove** — скрыть строки, совпадающие с шаблоном.
+- **Grep** — показать только совпадающие строки.
+- **Math** — фильтр по числовому значению (например, оставить строки, где число больше N).
+
+Фильтры комбинируются и применяются мгновенно — удобно искать нужное в больших логах.
 

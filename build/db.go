@@ -115,7 +115,8 @@ func migrate() error {
 			id        INTEGER PRIMARY KEY AUTOINCREMENT,
 			auth_id   TEXT    UNIQUE NOT NULL,
 			username  TEXT    NOT NULL DEFAULT '',
-			user_hash TEXT    UNIQUE NOT NULL DEFAULT ''
+			user_hash TEXT    UNIQUE NOT NULL DEFAULT '',
+			provider  TEXT    NOT NULL DEFAULT ''
 		);
 		CREATE TABLE IF NOT EXISTS groups (
 			id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,6 +137,7 @@ func migrate() error {
 
 	// best-effort column migrations for existing DBs
 	db.Exec(`ALTER TABLE users ADD COLUMN user_hash TEXT NOT NULL DEFAULT ''`)
+	db.Exec(`ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT ''`)
 
 	return nil
 }

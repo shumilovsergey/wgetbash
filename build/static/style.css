@@ -165,26 +165,45 @@ body {
 
 .profile-btn {
   width: 54px; height: 54px; border-radius: 50%;
-  background: rgba(22, 22, 33, 0.94);
-  border: 1px solid var(--bhi);
-  color: var(--txt2); font-family: inherit; font-size: 18px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.50);
+  color: rgba(255, 255, 255, 0.88); font-family: inherit; font-size: 18px; font-weight: 600;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8), 0 2px 12px rgba(0, 0, 0, 0.4);
   transition: border-color .15s, color .15s;
 }
 .profile-btn:hover,
-.profile-btn.open { border-color: var(--teal2); color: var(--teal2); }
+.profile-btn.open { border-color: rgba(255, 255, 255, 0.80); color: #fff; }
 
 .profile-popover {
   position: absolute; top: calc(100% + 10px); right: 0;
-  width: 200px;
-  background: var(--surf2); border: 1.5px solid var(--bhi);
-  border-radius: 16px; padding: 6px;
-  z-index: 101; display: none; flex-direction: column;
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  width: 256px;
+  background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px; padding: 14px;
+  z-index: 101; display: none; flex-direction: column; gap: 8px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
   box-shadow: 0 14px 44px rgba(0,0,0,.65);
 }
 .profile-popover.open { display: flex; }
+
+.pi-info { display: flex; flex-direction: column; gap: 3px; margin-bottom: 2px; }
+.pi-label { font-size: 10px; color: rgba(255, 255, 255, 0.45); letter-spacing: .1em; text-transform: uppercase; }
+.pi-name  { font-size: 15px; color: rgba(255, 255, 255, 0.92); word-break: break-all; }
+.pi-sub   { font-size: 11px; color: rgba(255, 255, 255, 0.45); word-break: break-all; }
+
+.pi-action {
+  display: block; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.50);
+  background: transparent; color: rgba(255, 255, 255, 0.88);
+  text-decoration: none; font: inherit; font-size: 13px; cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.pi-action:hover { border-color: rgba(255, 255, 255, 0.80); color: #fff; }
+.pi-logout { color: #ff9f9f; border-color: #a03030; }
+.pi-logout:hover { color: #ffbfbf; border-color: #cc4040; background: rgba(255, 80, 80, 0.12); }
 
 /* circle icon button */
 .ib {

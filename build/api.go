@@ -196,22 +196,6 @@ func handleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-// ── Users ──
-
-func handleUpdateUser(w http.ResponseWriter, r *http.Request) {
-	userID := userIDFromCtx(r)
-	var body struct {
-		Username string `json:"username"`
-	}
-	json.NewDecoder(r.Body).Decode(&body)
-	name := body.Username
-	if name == "" {
-		name = "no name"
-	}
-	db.Exec(`UPDATE users SET username = ? WHERE id = ?`, name, userID)
-	writeJSON(w, map[string]any{"ok": true, "username": name})
-}
-
 // ── Helpers ──
 
 func writeJSON(w http.ResponseWriter, v any) {

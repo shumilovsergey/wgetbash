@@ -450,61 +450,6 @@ async function saveGroupName() {
   $('grpDrop').style.display = 'none';
 }
 
-function setUserDisplay(name) {
-  $('userNameDisplay').textContent = name;
-}
-
-function enterUserEditMode() {
-  const row = $('userNameRow');
-  const currentName = $('userLbl').textContent;
-
-  const inp = document.createElement('input');
-  inp.className    = 'drop-inp';
-  inp.id           = 'userNameInp';
-  inp.value        = currentName;
-  inp.placeholder  = 'new name';
-  inp.autocomplete = 'off';
-
-  const btn = $('userEditBtn');
-  btn.innerHTML = `<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4 7.5L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  btn.title   = 'save';
-  btn.onclick = e => { e.stopPropagation(); commitUserName(); };
-
-  row.replaceChild(inp, $('userNameDisplay'));
-  inp.focus();
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commitUserName(); if (e.key === 'Escape') exitUserEditMode(); });
-}
-
-function exitUserEditMode() {
-  const row = $('userNameRow');
-  const inp = $('userNameInp');
-  const span = document.createElement('span');
-  span.className    = 'drop-lbl';
-  span.id           = 'userNameDisplay';
-  span.textContent  = $('userLbl').textContent;
-  span.style.cursor = 'pointer';
-  span.addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
-  row.replaceChild(span, inp);
-
-  const btn = $('userEditBtn');
-  btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-  btn.title   = 'edit name';
-  btn.onclick = e => { e.stopPropagation(); enterUserEditMode(); };
-}
-
-async function commitUserName() {
-  const val = $('userNameInp')?.value.trim() || 'no name';
-  exitUserEditMode();
-  try {
-    await api('PUT', '/api/users/me', { username: val });
-    $('userLbl').textContent     = val;
-    $('userInitial').textContent = init(val);
-    setUserDisplay(val);
-  } catch {
-    toast('failed to save name');
-  }
-}
-
 function toggleDrop(id) {
   const d    = $(id);
   const open = d.style.display === 'none';
@@ -552,9 +497,6 @@ $('userTrig').addEventListener('click', e => {
   $('userTrig').classList.toggle('open', open);
 });
 $('grpTrig').addEventListener('click',  e => { e.stopPropagation(); toggleDrop('grpDrop'); });
-$('userEditBtn').addEventListener('click',    e => { e.stopPropagation(); enterUserEditMode(); });
-$('userNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterUserEditMode(); });
-$('userNameDisplay').style.cursor = 'pointer';
 $('grpRenameBtn').addEventListener('click',  e => { e.stopPropagation(); enterGrpEditMode(); });
 $('grpNameDisplay').addEventListener('click', e => { e.stopPropagation(); enterGrpEditMode(); });
 $('grpNameDisplay').style.cursor = 'pointer';
@@ -611,10 +553,11 @@ async function initAuth() {
     const res  = await fetch('/auth/me', { credentials: 'include' });
     if (!res.ok) throw new Error();
     const user = await res.json();
-    $('userLbl').textContent     = user.username;
-    $('userInitial').textContent = init(user.username);
-    userHash                     = user.user_hash;
-    setUserDisplay(user.username);
+    $('userInitial').textContent  = init(user.username);
+    $('userName').textContent     = user.username;
+    $('userUid').textContent      = user.uid || '';
+    $('userProvider').textContent = user.provider || '';
+    userHash                      = user.user_hash;
     $('loginWrap').style.display = 'none';
     $('appWrap').style.display   = 'flex';
     if (!isMob()) $('backBtn').style.display = 'none';
