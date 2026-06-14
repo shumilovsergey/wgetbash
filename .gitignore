@@ -2,6 +2,7 @@
 CLAUDE.md
 .env
 .claude
+secret.md
 
 # ------ mask
 *.db
