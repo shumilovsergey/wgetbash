@@ -24,8 +24,14 @@ const ICO = {
 
 // ── HELPERS ──
 function autoResize(ta) {
+  // Setting height to 'auto' momentarily collapses the textarea; since it lives
+  // inside the scrolling .sc-list, that reflow clamps the list's scrollTop and
+  // jumps the view. Save/restore it around the measure.
+  const list = document.getElementById('scList');
+  const top = list ? list.scrollTop : 0;
   ta.style.height = 'auto';
   ta.style.height = ta.scrollHeight + 'px';
+  if (list) list.scrollTop = top;
 }
 
 function highlightBash(text) {
