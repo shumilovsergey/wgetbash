@@ -28,6 +28,7 @@ func main() {
 	mux.HandleFunc("GET /auth/login", handleLogin)
 	mux.HandleFunc("GET /auth/me", handleMe)
 	mux.HandleFunc("POST /auth/logout", handleLogout)
+	mux.HandleFunc("GET /auth/delegate", requireAuth(handleDelegate))
 
 	// API (protected)
 	mux.HandleFunc("GET /api/groups", requireAuth(handleGetGroups))

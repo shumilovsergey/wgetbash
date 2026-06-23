@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -187,6 +188,50 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 func handleLogout(w http.ResponseWriter, r *http.Request) {
 	clearCookie(w)
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// menuURL is app B — the app we delegate the logged-in user to.
+const menuURL = "https://menu.sh-development.ru/"
+
+// handleDelegate forwards the current user to the menu app via auth-center.
+// It calls POST {AUTH_INTERNAL}/delegate with the user's id, name and provider
+// so app B renders the real name (not "no name"), then redirects to app B with
+// the returned one-time code.
+func handleDelegate(w http.ResponseWriter, r *http.Request) {
+	userID := userIDFromCtx(r)
+
+	var authID, username, provider string
+	if err := db.QueryRow(`SELECT auth_id, username, provider FROM users WHERE id = ?`, userID).Scan(&authID, &username, &provider); err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if provider == "" {
+		provider = "delegate"
+	}
+	body, _ := json.Marshal(map[string]string{
+		"user_id":    authID,
+		"app_token":  os.Getenv("APP_TOKEN"),
+		"method":     provider,
+		"name":       username, // Google-style display name
+		"first_name": username, // Telegram/Solana-style fallback
+	})
+	resp, err := http.Post(os.Getenv("AUTH_INTERNAL")+"/delegate", "application/json", bytes.NewReader(body))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		http.Error(w, "delegate failed", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || payload.Code == "" {
+		http.Error(w, "invalid delegate response", http.StatusBadGateway)
+		return
+	}
+
+	http.Redirect(w, r, menuURL+"?code="+url.QueryEscape(payload.Code), http.StatusFound)
 }
 
 // ── Helpers ──
