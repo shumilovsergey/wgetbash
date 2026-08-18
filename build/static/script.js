@@ -19,6 +19,7 @@ const ICO = {
   pencil: `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7.5 1.5L9 3L3.5 9H1.5V7L7.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
   clip:   `<svg width="10" height="12" viewBox="0 0 10 12" fill="none"><rect x="1" y="2.5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3.5 2.5V1.8C3.5 1.36 3.86 1 4.3 1H5.7C6.14 1 6.5 1.36 6.5 1.8V2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
   check:  `<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4L4 7.5L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  lock:   `<svg width="10" height="12" viewBox="0 0 10 12" fill="none"><rect x="1" y="5" width="8" height="6.2" rx="1.4" stroke="currentColor" stroke-width="1.2"/><path d="M3 5V3.4C3 2.07 3.9 1 5 1s2 1.07 2 2.4V5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
   x:      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
 };
 
@@ -154,6 +155,14 @@ function renderScripts() {
         nameEl.textContent = s.name || '(unnamed)';
       }
 
+      let lockEl = null;
+      if (s.private && !s.edit) {
+        lockEl = document.createElement('span');
+        lockEl.className = 'sc-lock';
+        lockEl.title     = 'private — only you can open it';
+        lockEl.innerHTML = ICO.lock;
+      }
+
       const actBtn = document.createElement('button');
       if (!s.exp) {
         actBtn.className = 'ib sm';
@@ -179,6 +188,7 @@ function renderScripts() {
       wb.addEventListener('click', e => { e.stopPropagation(); copyWget(s); });
 
       row.appendChild(expBtn);
+      if (lockEl) row.appendChild(lockEl);
       row.appendChild(nameEl);
       row.appendChild(actBtn);
       row.appendChild(wb);
@@ -221,6 +231,29 @@ function renderScripts() {
 
         const foot = document.createElement('div');
         foot.className = 'sc-foot';
+
+        // "make:" is a plain-text prefix; the button carries the target state,
+        // so purple offers private and grey offers the way back. The current
+        // state shows as the lock in the row.
+        const privWrap = document.createElement('div');
+        privWrap.className = 'priv-wrap';
+
+        const privLbl = document.createElement('span');
+        privLbl.className   = 'priv-lbl';
+        privLbl.textContent = 'make:';
+
+        const privBtn = document.createElement('button');
+        privBtn.className   = 'priv-btn' + (s.private ? '' : ' on');
+        privBtn.textContent = s.private ? 'public' : 'private';
+        privBtn.title       = s.private
+          ? 'now private — anyone with the link could run it again'
+          : 'now public — only you would be able to open it';
+        privBtn.addEventListener('click', e => { e.stopPropagation(); togglePrivate(s.id); });
+
+        privWrap.appendChild(privLbl);
+        privWrap.appendChild(privBtn);
+        foot.appendChild(privWrap);
+
         const delBtn = document.createElement('button');
         delBtn.className = 'ib sm danger';
         delBtn.title     = 'delete script';
@@ -334,6 +367,20 @@ async function deleteScript(sid) {
   renderScripts();
 }
 
+async function togglePrivate(sid) {
+  const s = sc(selGrp, sid);
+  if (!s) return;
+  const next = !s.private;
+  try {
+    await api('PUT', `/api/scripts/${sid}/private`, { private: next });
+    s.private = next;
+    toast(next ? 'private — opens only while you are logged in' : 'public — anyone with the link can run it');
+  } catch {
+    toast('failed to change visibility');
+  }
+  renderScripts();
+}
+
 function copyContent(s) {
   navigator.clipboard?.writeText(s.content).catch(() => {});
   toast('script copied!');
@@ -342,7 +389,7 @@ function copyContent(s) {
 function copyWget(s) {
   const cmd = `wget -qO- ${window.location.origin}/run/${userHash}/${s.hash} | bash`;
   navigator.clipboard?.writeText(cmd).catch(() => {});
-  toast('wget command copied!');
+  toast(s.private ? 'wget copied — script is private, it will not run remotely' : 'wget command copied!');
 }
 
 async function addGroup() {

@@ -38,6 +38,7 @@ func main() {
 	mux.HandleFunc("GET /api/groups/{id}/scripts", requireAuth(handleGetScripts))
 	mux.HandleFunc("POST /api/groups/{id}/scripts", requireAuth(handleCreateScript))
 	mux.HandleFunc("PUT /api/scripts/{id}", requireAuth(handleUpdateScript))
+	mux.HandleFunc("PUT /api/scripts/{id}/private", requireAuth(handleSetScriptPrivate))
 	mux.HandleFunc("DELETE /api/scripts/{id}", requireAuth(handleDeleteScript))
 
 	// Public script endpoint

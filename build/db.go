@@ -128,7 +128,8 @@ func migrate() error {
 			group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
 			name     TEXT    NOT NULL DEFAULT '',
 			content  TEXT    NOT NULL DEFAULT '',
-			hash     TEXT    UNIQUE NOT NULL
+			hash     TEXT    UNIQUE NOT NULL,
+			private  INTEGER NOT NULL DEFAULT 0
 		);
 	`)
 	if err != nil {
@@ -138,6 +139,8 @@ func migrate() error {
 	// best-effort column migrations for existing DBs
 	db.Exec(`ALTER TABLE users ADD COLUMN user_hash TEXT NOT NULL DEFAULT ''`)
 	db.Exec(`ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT ''`)
+	// private = 0 keeps every existing script publicly runnable, as before
+	db.Exec(`ALTER TABLE scripts ADD COLUMN private INTEGER NOT NULL DEFAULT 0`)
 
 	return nil
 }

@@ -29,6 +29,9 @@ input, textarea { font: inherit; }
   --red:    #3d0808;
   --redhi:  #ff3030;
   --redg:   rgba(255, 48, 48, .08);
+  --vio:    #1c0b33;
+  --vio2:   #b061ff;
+  --viog:   rgba(176, 97, 255, .10);
   --blu:    #081430;
   --bluhi:  #3da0ff;
   --blug:   rgba(61, 160, 255, .08);
@@ -370,7 +373,42 @@ body {
   overflow: hidden; transition: border-color .15s;
 }
 .sc-ta:not([readonly]):focus { border-color: var(--teal); }
-.sc-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+.sc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+
+/* visibility toggle — "make:" label + the state the button switches to:
+   neon purple = private, grey = public */
+.priv-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.priv-lbl {
+  font-size: 11px; color: var(--txt2); letter-spacing: .4px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+}
+.priv-btn {
+  height: 26px;
+  padding: 0 13px;
+  display: inline-flex; align-items: center;
+  background: var(--surf2);
+  border: 1px solid var(--bhi);
+  border-radius: var(--rxs);
+  color: var(--txt2);
+  font-size: 11px; font-weight: 700;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  letter-spacing: .8px; cursor: pointer; flex-shrink: 0;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+.priv-btn:hover { background: var(--hover); border-color: var(--txt2); color: var(--txt); }
+.priv-btn.on {
+  background: var(--vio); border-color: #6d2fc4;
+  color: var(--vio2); box-shadow: 0 0 10px var(--viog);
+}
+.priv-btn.on:hover {
+  background: #2a1052; border-color: var(--vio2);
+  box-shadow: 0 0 14px rgba(176, 97, 255, .28);
+}
+
+.sc-lock {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  color: var(--vio2); opacity: .8;
+}
 
 /* ── DROPDOWNS ── */
 .dd { position: relative; }
@@ -477,6 +515,8 @@ body {
 
   /* bigger wget button */
   .wget-btn { height: 40px; padding: 0 18px; font-size: 14px; letter-spacing: 1px; }
+  .priv-btn { height: 40px; padding: 0 18px; font-size: 14px; letter-spacing: 1px; }
+  .priv-lbl { font-size: 14px; }
 
   /* mobile view switching: show only one panel at a time */
   body.vg .rp { display: none; }

@@ -93,6 +93,20 @@ func userIDFromCtx(r *http.Request) int64 {
 	return r.Context().Value(ctxUserID).(int64)
 }
 
+// sessionUserID reads the session cookie without enforcing it — for routes that
+// are public by default but need to know who (if anyone) is logged in.
+func sessionUserID(r *http.Request) (int64, bool) {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return 0, false
+	}
+	claims, err := parseToken(cookie.Value)
+	if err != nil {
+		return 0, false
+	}
+	return claims.UserID, true
+}
+
 // ── Auth handlers ──
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {

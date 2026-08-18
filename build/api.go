@@ -102,7 +102,7 @@ func handleGetScripts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	rows, err := db.Query(`SELECT id, name, content, hash FROM scripts WHERE group_id = ? ORDER BY id`, gid)
+	rows, err := db.Query(`SELECT id, name, content, hash, private FROM scripts WHERE group_id = ? ORDER BY id`, gid)
 	if err != nil {
 		http.Error(w, "db error", http.StatusInternalServerError)
 		return
@@ -114,11 +114,12 @@ func handleGetScripts(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Content string `json:"content"`
 		Hash    string `json:"hash"`
+		Private bool   `json:"private"`
 	}
 	scripts := []Script{}
 	for rows.Next() {
 		var s Script
-		rows.Scan(&s.ID, &s.Name, &s.Content, &s.Hash)
+		rows.Scan(&s.ID, &s.Name, &s.Content, &s.Hash, &s.Private)
 		scripts = append(scripts, s)
 	}
 	writeJSON(w, scripts)
@@ -152,7 +153,7 @@ func handleCreateScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
-	writeJSON(w, map[string]any{"id": id, "name": body.Name, "content": body.Content, "hash": hash})
+	writeJSON(w, map[string]any{"id": id, "name": body.Name, "content": body.Content, "hash": hash, "private": false})
 }
 
 func handleUpdateScript(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +177,34 @@ func handleUpdateScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// handleSetScriptPrivate flips a single script between public and
+// authenticated-only. Kept separate from handleUpdateScript so the toggle
+// persists instantly without touching name/content.
+func handleSetScriptPrivate(w http.ResponseWriter, r *http.Request) {
+	userID := userIDFromCtx(r)
+	id, err := pathID(r, "id")
+	if err != nil {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Private bool `json:"private"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	res, err := db.Exec(`
+		UPDATE scripts SET private = ?
+		WHERE id = ? AND group_id IN (SELECT id FROM groups WHERE user_id = ?)
+	`, body.Private, id, userID)
+	if err != nil || affected(res) == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "private": body.Private})
 }
 
 func handleDeleteScript(w http.ResponseWriter, r *http.Request) {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -40,20 +41,42 @@ trap '
 
 `
 
+func appURL() string {
+	if u := os.Getenv("APP_URL"); u != "" {
+		return u
+	}
+	return "wgetbash"
+}
+
 func handleRunScript(w http.ResponseWriter, r *http.Request) {
 	userHash := r.PathValue("userHash")
 	scriptHash := r.PathValue("scriptHash")
 
-	var content string
+	var (
+		content string
+		private bool
+		ownerID int64
+	)
 	err := db.QueryRow(`
-		SELECT s.content FROM scripts s
+		SELECT s.content, s.private, u.id FROM scripts s
 		JOIN groups g ON g.id = s.group_id
 		JOIN users u ON u.id = g.user_id
 		WHERE u.user_hash = ? AND s.hash = ?
-	`, userHash, scriptHash).Scan(&content)
+	`, userHash, scriptHash).Scan(&content, &private, &ownerID)
 	if err != nil {
 		http.NotFound(w, r)
 		return
+	}
+
+	// private scripts are readable only by their owner's logged-in browser
+	if private {
+		uid, ok := sessionUserID(r)
+		if !ok || uid != ownerID {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, "# this script is private — open it while logged in at "+appURL()+"\n")
+			return
+		}
 	}
 
 	body := strings.ReplaceAll(content, "\ufeff", "")
