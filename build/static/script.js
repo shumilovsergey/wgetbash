@@ -35,6 +35,24 @@ function autoResize(ta) {
   if (list) list.scrollTop = top;
 }
 
+// Most recently edited first — the same order the API returns, kept here so the
+// list re-orders on save without a round trip. updated_at is unix seconds from
+// the server; ties (every script the migration backfill stamped at once) fall
+// back to newest-created.
+function sortScripts(g) {
+  if (!g || !g.scripts) return;
+  g.scripts.sort((a, b) => ((b.updated_at || 0) - (a.updated_at || 0)) || (b.id - a.id));
+}
+
+// Saving re-orders the list, so the script just edited can jump out of view.
+// renderScripts restores scrollTop in a rAF, so queue this after that one.
+function keepInView(sid) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = document.querySelector(`.sc-item[data-id="${sid}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }));
+}
+
 function highlightBash(text) {
   return text.split('\n').map(line => {
     const idx = line.indexOf('#');
@@ -77,6 +95,7 @@ async function loadScripts(gid) {
     const data = await api('GET', `/api/groups/${gid}/scripts`);
     g.scripts = data.map(s => ({ ...s, exp: false, edit: false }));
     g.loaded  = true;
+    sortScripts(g);
   } catch {
     toast('failed to load scripts');
   }
@@ -352,11 +371,16 @@ async function saveScript(sid) {
   applyEdits(s);
   s.edit = false;
   try {
-    await api('PUT', `/api/scripts/${sid}`, { name: s.name, content: s.content });
+    const res = await api('PUT', `/api/scripts/${sid}`, { name: s.name, content: s.content });
+    // the server owns the clock — take its value so the order here matches what
+    // a reload would show
+    if (res && typeof res.updated_at === 'number') s.updated_at = res.updated_at;
+    sortScripts(grp(selGrp));
   } catch {
     toast('failed to save script');
   }
   renderScripts();
+  keepInView(sid);
 }
 
 function applyEdits(s) {
@@ -443,6 +467,7 @@ async function addScript() {
   try {
     const s = await api('POST', `/api/groups/${selGrp}/scripts`, { name: '', content: '' });
     g.scripts.push({ ...s, exp: true, edit: true, _name: '', _content: '' });
+    sortScripts(g);
     renderScripts();
     requestAnimationFrame(() => {
       const inp = document.querySelector(`.sc-item[data-id="${s.id}"] .sc-name-inp`);

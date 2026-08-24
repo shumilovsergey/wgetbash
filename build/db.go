@@ -53,60 +53,93 @@ func seedDemoContent(userID int64) {
 	}
 	gid, _ := res.LastInsertId()
 
-	scripts := []struct{ name, content string }{
+	// Демо-контент для нового пользователя. Комментарии на русском — как и README.
+	scripts := []struct {
+		name    string
+		content string
+		private bool
+	}{
 		{
 			"hello world",
-			`# hello! this is an example script
-# no need to add #!/bin/bash — it's injected automatically
-# write your commands, save, then click [wget] to copy the URL to clipboard
-# paste it on any server and it will execute remotely
+			`# привет! это пример скрипта
+# писать #!/bin/bash не нужно — он подставляется автоматически
+# пиши команды, сохрани, потом нажми [wget] — ссылка скопируется в буфер
+# вставь её на любом сервере, и скрипт выполнится удалённо
 
-# the script runs in memory via pipe — nothing is saved to your server
-# no files are created, no cleanup needed after
+# скрипт выполняется в памяти через пайп — на сервере ничего не сохраняется
+# файлы не создаются, после запуска чистить нечего
 
-# print current date and time
+# текущая дата и время
 date
 
-# show OS name and kernel version
+# имя системы и версия ядра
 uname -a
 
-# show logged in user
+# текущий пользователь
 whoami
 
-# show RAM usage (total / used / free)
+# память: всего / занято / свободно
 free -h
 
-# show disk usage of root partition
+# место на корневом разделе
 df -h /
 
-# show system uptime
+# сколько система работает без перезагрузки
 uptime`,
+			false,
 		},
 		{
 			"error handling",
-			`# this script demonstrates what happens when a command fails
-# wgetbash wraps every script with error trapping
-# if any command exits with a non-zero code:
-#   - execution stops immediately
-#   - the failed line number is shown
-#   - you see a red [ERROR] message with the exit code
+			`# этот скрипт показывает, что происходит при ошибке
+# wgetbash оборачивает каждый скрипт обработкой ошибок
+# если любая команда завершится с ненулевым кодом:
+#   - выполнение сразу останавливается
+#   - показывается номер упавшей строки
+#   - выводится красный [ERROR] с кодом выхода
 
-# this will succeed
-echo "step 1: ok"
+# это выполнится успешно
+echo "шаг 1: ок"
 
-# this will fail — exit code 1
-# everything below this line will NOT run
+# а это упадёт — код выхода 1
+# всё, что ниже этой строки, уже НЕ выполнится
 false
 
-# this line is never reached
-echo "step 2: you will never see this"`,
+# сюда мы никогда не дойдём
+echo "шаг 2: ты этого не увидишь"`,
+			false,
+		},
+		{
+			"markdown and private notes",
+			`# это заметка, а не команда для сервера
+# она уже приватная — смотри на замок слева от названия
+
+# ── приватность ──
+# кнопка [make: private] внизу переключает видимость
+# публичный скрипт может запустить любой, у кого есть ссылка
+# приватный отдаётся только тебе и только в браузере, где ты залогинен
+# через wget приватный скрипт не выполнится — придёт 401 вместо кода
+# удобно, когда это заметка, а не команда для сервера
+
+# ── markdown ──
+# три дефиса на отдельной строке рисуют горизонтальную линию:
+
+---
+
+# а ссылка вида [текст](https://example.com) становится кликабельной:
+# исходники — [wgetbash на github](https://github.com/shumilovsergey/wgetbash)
+
+# ── важно ──
+# markdown работает только здесь, в режиме просмотра
+# при редактировании и в выводе wget текст остаётся сырым, символ в символ
+# то есть рендер никак не влияет на то, что реально выполнится на сервере`,
+			true,
 		},
 	}
 
 	for _, s := range scripts {
 		db.Exec(
-			`INSERT INTO scripts (group_id, name, content, hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
-			gid, s.name, s.content, newHash(), time.Now().Unix(),
+			`INSERT INTO scripts (group_id, name, content, hash, private, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			gid, s.name, s.content, newHash(), s.private, time.Now().Unix(),
 		)
 	}
 }

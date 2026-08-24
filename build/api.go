@@ -103,7 +103,12 @@ func handleGetScripts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	rows, err := db.Query(`SELECT id, name, content, hash, private, updated_at FROM scripts WHERE group_id = ? ORDER BY id`, gid)
+	// most recently edited first; ties (everything the backfill stamped at once)
+	// fall back to newest-created
+	rows, err := db.Query(`
+		SELECT id, name, content, hash, private, updated_at FROM scripts
+		WHERE group_id = ? ORDER BY updated_at DESC, id DESC
+	`, gid)
 	if err != nil {
 		http.Error(w, "db error", http.StatusInternalServerError)
 		return
