@@ -373,6 +373,24 @@ body {
   overflow: hidden; transition: border-color .15s;
 }
 .sc-ta:not([readonly]):focus { border-color: var(--teal); }
+
+/* read view — replaces the textarea when the script is not being edited. Same
+   metrics as .sc-ta/.sc-hl so switching to edit mode does not shift the text. */
+.sc-view {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 12px; line-height: 1.7;
+  padding: 10px 13px;
+  border: 1.5px solid var(--b); border-radius: var(--rsm);
+  white-space: pre-wrap; overflow-wrap: break-word;
+  min-height: 88px;
+  color: var(--txt); background: var(--surf2);
+}
+.sc-view .cm { color: var(--txt2); }
+
+/* markdown — read view only, see markdown.js */
+.md-a { color: var(--bluhi); text-decoration: underline; text-underline-offset: 2px; }
+.md-a:hover { color: #7bc0ff; }
+.md-hr { border: none; border-top: 1px solid var(--bhi); margin: 8px 0; }
 .sc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 
 /* visibility toggle — "make:" label + the state the button switches to:

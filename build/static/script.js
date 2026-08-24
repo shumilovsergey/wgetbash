@@ -198,21 +198,26 @@ function renderScripts() {
         const cont = document.createElement('div');
         cont.className = 'sc-content';
 
-        const taWrap = document.createElement('div');
-        taWrap.className = 'ta-wrap';
-
-        const hl = document.createElement('div');
-        hl.className = 'sc-hl';
-        hl.setAttribute('aria-hidden', 'true');
-        hl.innerHTML = highlightBash(s.content || '');
-
-        const ta = document.createElement('textarea');
-        ta.className  = 'sc-ta';
-        ta.value      = s.content || '';
-        ta.spellcheck = false;
-        ta.readOnly   = !s.edit;
+        // Two views of one text: editing shows it raw — the textarea and its
+        // highlight mirror have to line up character for character — while
+        // reading shows it through MD.render (markdown.js). What is stored, and
+        // what /run serves to wget, is the raw text either way.
+        let body, ta = null;
 
         if (s.edit) {
+          body = document.createElement('div');
+          body.className = 'ta-wrap';
+
+          const hl = document.createElement('div');
+          hl.className = 'sc-hl';
+          hl.setAttribute('aria-hidden', 'true');
+          hl.innerHTML = highlightBash(s.content || '');
+
+          ta = document.createElement('textarea');
+          ta.className  = 'sc-ta';
+          ta.value      = s.content || '';
+          ta.spellcheck = false;
+
           ta.addEventListener('input', e => {
             s._content = e.target.value;
             hl.innerHTML = highlightBash(e.target.value);
@@ -224,10 +229,14 @@ function renderScripts() {
           ta.addEventListener('beforeinput', e => {
             if (e.inputType === 'deleteContentBackward') handleBackspaceLine(e, ta, s, hl);
           });
-        }
 
-        taWrap.appendChild(hl);
-        taWrap.appendChild(ta);
+          body.appendChild(hl);
+          body.appendChild(ta);
+        } else {
+          body = document.createElement('div');
+          body.className = 'sc-view';
+          body.innerHTML = MD.render(s.content || '');
+        }
 
         const foot = document.createElement('div');
         foot.className = 'sc-foot';
@@ -261,11 +270,11 @@ function renderScripts() {
         delBtn.addEventListener('click', () => confirmDel(() => deleteScript(s.id)));
         foot.appendChild(delBtn);
 
-        cont.appendChild(taWrap);
+        cont.appendChild(body);
         cont.appendChild(foot);
         item.appendChild(cont);
 
-        requestAnimationFrame(() => autoResize(ta));
+        if (ta) requestAnimationFrame(() => autoResize(ta));
       }
 
       list.appendChild(item);
