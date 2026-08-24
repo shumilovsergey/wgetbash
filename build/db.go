@@ -136,10 +136,14 @@ echo "шаг 2: ты этого не увидишь"`,
 		},
 	}
 
-	for _, s := range scripts {
+	// The list is ordered by updated_at DESC, so identical timestamps would show
+	// these bottom-up. Stagger them a second apart — first in the table above is
+	// newest — so they read top-down in teaching order.
+	now := time.Now().Unix()
+	for i, s := range scripts {
 		db.Exec(
 			`INSERT INTO scripts (group_id, name, content, hash, private, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			gid, s.name, s.content, newHash(), s.private, time.Now().Unix(),
+			gid, s.name, s.content, newHash(), s.private, now-int64(i),
 		)
 	}
 }
