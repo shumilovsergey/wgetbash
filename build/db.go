@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -103,8 +105,8 @@ echo "step 2: you will never see this"`,
 
 	for _, s := range scripts {
 		db.Exec(
-			`INSERT INTO scripts (group_id, name, content, hash) VALUES (?, ?, ?, ?)`,
-			gid, s.name, s.content, newHash(),
+			`INSERT INTO scripts (group_id, name, content, hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
+			gid, s.name, s.content, newHash(), time.Now().Unix(),
 		)
 	}
 }
@@ -124,23 +126,91 @@ func migrate() error {
 			name    TEXT    NOT NULL
 		);
 		CREATE TABLE IF NOT EXISTS scripts (
-			id       INTEGER PRIMARY KEY AUTOINCREMENT,
-			group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-			name     TEXT    NOT NULL DEFAULT '',
-			content  TEXT    NOT NULL DEFAULT '',
-			hash     TEXT    UNIQUE NOT NULL,
-			private  INTEGER NOT NULL DEFAULT 0
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+			name       TEXT    NOT NULL DEFAULT '',
+			content    TEXT    NOT NULL DEFAULT '',
+			hash       TEXT    UNIQUE NOT NULL,
+			private    INTEGER NOT NULL DEFAULT 0,
+			updated_at INTEGER NOT NULL DEFAULT 0
 		);
 	`)
 	if err != nil {
 		return err
 	}
 
-	// best-effort column migrations for existing DBs
-	db.Exec(`ALTER TABLE users ADD COLUMN user_hash TEXT NOT NULL DEFAULT ''`)
-	db.Exec(`ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT ''`)
-	// private = 0 keeps every existing script publicly runnable, as before
-	db.Exec(`ALTER TABLE scripts ADD COLUMN private INTEGER NOT NULL DEFAULT 0`)
+	// Column migrations for databases created before a column existed. Each is
+	// skipped when the column is already present, so they stay here permanently
+	// and every error that does come back is a real one.
+	cols := []struct{ table, column, definition string }{
+		{"users", "user_hash", "user_hash TEXT NOT NULL DEFAULT ''"},
+		{"users", "provider", "provider TEXT NOT NULL DEFAULT ''"},
+		// private = 0 keeps every existing script publicly runnable, as before
+		{"scripts", "private", "private INTEGER NOT NULL DEFAULT 0"},
+		// SQLite rejects CURRENT_TIMESTAMP as an ADD COLUMN default, so the
+		// column arrives at 0 and backfillUpdatedAt stamps the existing rows.
+		{"scripts", "updated_at", "updated_at INTEGER NOT NULL DEFAULT 0"},
+	}
+	for _, c := range cols {
+		if err := addColumn(c.table, c.column, c.definition); err != nil {
+			return err
+		}
+	}
 
+	return backfillUpdatedAt()
+}
+
+// hasColumn reports whether table already has the named column. This is the
+// precondition that lets addColumn fail loudly: once we know the column is
+// missing, any error from ADD COLUMN is a genuine failure rather than the
+// harmless "duplicate column name" of a second startup.
+func hasColumn(table, column string) (bool, error) {
+	rows, err := db.Query(`SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+// addColumn applies an ALTER TABLE only when the column is missing. table and
+// definition come from the constant table in migrate(), never from user input.
+func addColumn(table, column, definition string) error {
+	has, err := hasColumn(table, column)
+	if err != nil {
+		return fmt.Errorf("inspect %s.%s: %w", table, column, err)
+	}
+	if has {
+		return nil
+	}
+	if _, err := db.Exec(`ALTER TABLE ` + table + ` ADD COLUMN ` + definition); err != nil {
+		return fmt.Errorf("add %s.%s: %w", table, column, err)
+	}
+	log.Printf("migrate: added %s.%s", table, column)
+	return nil
+}
+
+// backfillUpdatedAt stamps rows that predate scripts.updated_at. It is guarded
+// by `WHERE updated_at = 0` and kept permanently rather than run once and
+// deleted: migrate() is the only thing that upgrades a database, so a restored
+// old backup or an idle dev copy still needs it. Every INSERT sets updated_at,
+// so after the first run this matches nothing.
+func backfillUpdatedAt() error {
+	res, err := db.Exec(`UPDATE scripts SET updated_at = ? WHERE updated_at = 0`, time.Now().Unix())
+	if err != nil {
+		return fmt.Errorf("backfill scripts.updated_at: %w", err)
+	}
+	if n := affected(res); n > 0 {
+		log.Printf("migrate: stamped %d script(s) with updated_at", n)
+	}
 	return nil
 }

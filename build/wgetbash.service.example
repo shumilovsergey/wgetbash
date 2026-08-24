@@ -1,6 +1,12 @@
 [Unit]
 Description=wgetbash
 After=network.target
+# A failed migration exits non-zero on purpose. Without a start limit,
+# Restart=always would flap every 5s forever and bury the error in restart
+# noise; with it the unit gives up and stays in `failed`, where it is visible
+# to `systemctl status`.
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // ── Groups ──
@@ -102,7 +103,7 @@ func handleGetScripts(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	rows, err := db.Query(`SELECT id, name, content, hash, private FROM scripts WHERE group_id = ? ORDER BY id`, gid)
+	rows, err := db.Query(`SELECT id, name, content, hash, private, updated_at FROM scripts WHERE group_id = ? ORDER BY id`, gid)
 	if err != nil {
 		http.Error(w, "db error", http.StatusInternalServerError)
 		return
@@ -110,16 +111,17 @@ func handleGetScripts(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type Script struct {
-		ID      int64  `json:"id"`
-		Name    string `json:"name"`
-		Content string `json:"content"`
-		Hash    string `json:"hash"`
-		Private bool   `json:"private"`
+		ID        int64  `json:"id"`
+		Name      string `json:"name"`
+		Content   string `json:"content"`
+		Hash      string `json:"hash"`
+		Private   bool   `json:"private"`
+		UpdatedAt int64  `json:"updated_at"` // unix seconds; set on create and on name/content edits
 	}
 	scripts := []Script{}
 	for rows.Next() {
 		var s Script
-		rows.Scan(&s.ID, &s.Name, &s.Content, &s.Hash, &s.Private)
+		rows.Scan(&s.ID, &s.Name, &s.Content, &s.Hash, &s.Private, &s.UpdatedAt)
 		scripts = append(scripts, s)
 	}
 	writeJSON(w, scripts)
@@ -144,16 +146,17 @@ func handleCreateScript(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 	hash := newHash()
+	now := time.Now().Unix()
 	res, err := db.Exec(
-		`INSERT INTO scripts (group_id, name, content, hash) VALUES (?, ?, ?, ?)`,
-		gid, body.Name, body.Content, hash,
+		`INSERT INTO scripts (group_id, name, content, hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		gid, body.Name, body.Content, hash, now,
 	)
 	if err != nil {
 		http.Error(w, "db error", http.StatusInternalServerError)
 		return
 	}
 	id, _ := res.LastInsertId()
-	writeJSON(w, map[string]any{"id": id, "name": body.Name, "content": body.Content, "hash": hash, "private": false})
+	writeJSON(w, map[string]any{"id": id, "name": body.Name, "content": body.Content, "hash": hash, "private": false, "updated_at": now})
 }
 
 func handleUpdateScript(w http.ResponseWriter, r *http.Request) {
@@ -168,20 +171,22 @@ func handleUpdateScript(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	json.NewDecoder(r.Body).Decode(&body)
+	now := time.Now().Unix()
 	res, err := db.Exec(`
-		UPDATE scripts SET name = ?, content = ?
+		UPDATE scripts SET name = ?, content = ?, updated_at = ?
 		WHERE id = ? AND group_id IN (SELECT id FROM groups WHERE user_id = ?)
-	`, body.Name, body.Content, id, userID)
+	`, body.Name, body.Content, now, id, userID)
 	if err != nil || affected(res) == 0 {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	writeJSON(w, map[string]any{"ok": true})
+	writeJSON(w, map[string]any{"ok": true, "updated_at": now})
 }
 
 // handleSetScriptPrivate flips a single script between public and
 // authenticated-only. Kept separate from handleUpdateScript so the toggle
-// persists instantly without touching name/content.
+// persists instantly without touching name/content — and deliberately leaves
+// updated_at alone, since changing who can see a script is not an edit to it.
 func handleSetScriptPrivate(w http.ResponseWriter, r *http.Request) {
 	userID := userIDFromCtx(r)
 	id, err := pathID(r, "id")
